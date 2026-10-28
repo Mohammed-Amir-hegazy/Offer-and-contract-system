@@ -1,15 +1,19 @@
 const { db } = require('./db');
 
-function loadUser(req, res, next) {
-  const id = req.session && req.session.userId;
-  if (id) {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-    // Deactivated users are logged out immediately.
-    if (user && user.active) req.user = user;
-    else req.session = null;
+async function loadUser(req, res, next) {
+  try {
+    const id = req.session && req.session.userId;
+    if (id) {
+      const user = await db.get('SELECT * FROM users WHERE id = ?', id);
+      // Deactivated users are logged out immediately.
+      if (user && user.active) req.user = user;
+      else req.session = null;
+    }
+    res.locals.user = req.user || null;
+    next();
+  } catch (err) {
+    next(err);
   }
-  res.locals.user = req.user || null;
-  next();
 }
 
 function requireAuth(req, res, next) {

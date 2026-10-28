@@ -1,7 +1,7 @@
 /* Ebtikar (ابتكار) — app identity. Printed documents use the issuing company's identity instead (see .doc). */
 @font-face {
   font-family: 'DIN Next LT Arabic';
-  src: url('/static/fonts/DINNextLTArabic-Regular.ttf') format('truetype');
+  src: url('/fonts/DINNextLTArabic-Regular.ttf') format('truetype');
   font-weight: 400;
   font-display: swap;
 }

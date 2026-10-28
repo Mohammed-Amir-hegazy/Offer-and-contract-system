@@ -5,10 +5,12 @@
   const primary = hex(company.primary_color, '#1f2937');
   const secondary = hex(company.secondary_color, primary);
   const googleFont = !company.font_file && f.COMPANY_FONTS.includes(company.font_family) ? company.font_family : (company.font_file ? null : 'Cairo');
-  const fontFile = /^[a-f0-9]+\.(ttf|otf|woff2?)$/.test(company.font_file || '') ? company.font_file : null;
+  // A random local file name or a Vercel Blob URL; anything else is ignored so it cannot break out of the CSS.
+  const fontUrl = /^(https:\/\/[a-z0-9.-]+\.public\.blob\.vercel-storage\.com\/uploads\/)?[a-f0-9]+\.(ttf|otf|woff2?)$/.test(company.font_file || '') ? f.upload(company.font_file) : null;
+  const fontFile = fontUrl;
 %>
 <% if (googleFont) { %><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=<%- googleFont.replace(/ /g, '+') %>:wght@400;700&display=swap"><% } %>
 <style>
-<% if (fontFile) { %>@font-face { font-family: 'CompanyFont'; src: url('/uploads/<%- fontFile %>'); font-display: swap; }<% } %>
+<% if (fontFile) { %>@font-face { font-family: 'CompanyFont'; src: url('<%- fontUrl %>'); font-display: swap; }<% } %>
 .doc { --company-color: <%- primary %>; --company-accent: <%- secondary %>; font-family: <%- fontFile ? "'CompanyFont'" : `'${googleFont}'` %>, 'Cairo', Tahoma, sans-serif; }
 </style>

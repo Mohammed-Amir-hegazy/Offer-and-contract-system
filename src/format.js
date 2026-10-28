@@ -66,11 +66,17 @@ function nowLocal() {
   }).format(new Date());
 }
 
+// Uploaded files are stored either as a full (Vercel Blob) URL or as a local file name.
+function upload(stored) {
+  if (!stored) return null;
+  return /^https:\/\//.test(stored) ? stored : `/uploads/${String(stored).split('/').pop()}`;
+}
+
 function todayIso() {
   return nowLocal().slice(0, 10);
 }
 
 module.exports = {
   FLOOR_LABELS, STATUS_LABELS, CONTRACT_STATUS_LABELS, FREQUENCY_LABELS, COMPANY_FONTS,
-  money, area, date, datetime, floorLabel, frequencyLabel, escapeHtml, todayIso, nowLocal,
+  money, area, date, datetime, floorLabel, frequencyLabel, escapeHtml, todayIso, nowLocal, upload,
 };

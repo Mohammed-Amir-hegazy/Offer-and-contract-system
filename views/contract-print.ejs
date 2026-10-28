@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>عقد <%= contract.number %> — <%= contract.client.name %> — <%= company.name %></title>
-<link rel="icon" href="<%= company.logo ? '/uploads/' + company.logo : '/static/img/favicon.svg' %>">
-<link rel="stylesheet" href="/static/css/style.css">
+<link rel="icon" href="<%= company.logo ? f.upload(company.logo) : '/img/favicon.svg' %>">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body style="background:#fff">
 <div class="actions-bar" style="margin-top:16px"><button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>

@@ -1,16 +1,64 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
 const bcrypt = require('bcryptjs');
 const { DEFAULT_CONTRACT_TEMPLATE } = require('./default-template');
 
+// Storage: Turso / libSQL in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN),
+// a local SQLite file otherwise. The SQL is the same in both cases.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-fs.mkdirSync(DATA_DIR, { recursive: true });
+const DB_URL = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || null;
 
-const db = new DatabaseSync(process.env.DB_PATH || path.join(DATA_DIR, 'app.db'));
-db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+class ConfigError extends Error {}
 
-db.exec(`
+function createDbClient() {
+  if (DB_URL && !DB_URL.startsWith('file:')) {
+    const { createClient } = require('@libsql/client/web');
+    return createClient({ url: DB_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+  }
+  // Serverless platforms have a read-only, throw-away disk: a local file would lose every write.
+  if (process.env.VERCEL && !DB_URL) {
+    throw new ConfigError('لم يتم ربط قاعدة البيانات: أضف TURSO_DATABASE_URL و TURSO_AUTH_TOKEN في إعدادات Vercel');
+  }
+  const url = DB_URL || `file:${path.join(DATA_DIR, 'app.db')}`;
+  fs.mkdirSync(path.dirname(url.slice('file:'.length)), { recursive: true });
+  const { createClient } = require('@libsql/client');
+  return createClient({ url });
+}
+
+let client = null;
+function getClient() {
+  if (!client) client = createDbClient();
+  return client;
+}
+
+const toObject = (rs, row) => Object.fromEntries(rs.columns.map((c, i) => [c, row[i]]));
+const stmt = (sql, args) => ({ sql, args: args.map((a) => (a === undefined ? null : a)) });
+
+// Thin async helpers mirroring the get/all/run style used throughout the app.
+const db = {
+  async get(sql, ...args) {
+    const rs = await getClient().execute(stmt(sql, args));
+    return rs.rows.length ? toObject(rs, rs.rows[0]) : null;
+  },
+  async all(sql, ...args) {
+    const rs = await getClient().execute(stmt(sql, args));
+    return rs.rows.map((r) => toObject(rs, r));
+  },
+  async run(sql, ...args) {
+    const rs = await getClient().execute(stmt(sql, args));
+    return { changes: rs.rowsAffected, lastInsertRowid: rs.lastInsertRowid == null ? null : Number(rs.lastInsertRowid) };
+  },
+  async exec(sql) {
+    await getClient().executeMultiple(sql);
+  },
+  // Runs several statements atomically: [[sql, ...args], ...]
+  async batch(statements) {
+    if (!statements.length) return [];
+    return getClient().batch(statements.map(([sql, ...args]) => stmt(sql, args)), 'write');
+  },
+};
+
+const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -115,22 +163,31 @@ CREATE TABLE IF NOT EXISTS contracts (
   created_by INTEGER NOT NULL REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-`);
+`;
 
 // Columns added after the first release.
-function addColumn(table, column, type) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
-  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+const MIGRATIONS = [
+  ['units', 'company_id', 'INTEGER REFERENCES companies(id)'],
+  ['quotes', 'company', 'TEXT'],
+  ['contracts', 'company', 'TEXT'],
+  ['companies', 'secondary_color', 'TEXT'],
+  ['companies', 'font_family', 'TEXT'],
+  ['companies', 'font_file', 'TEXT'],
+  ['companies', 'stamp', 'TEXT'],
+  ['companies', 'master_plan', 'TEXT'],
+  ['contracts', 'extras', 'TEXT'],
+];
+
+async function addColumn(table, column, type) {
+  const cols = (await db.all(`PRAGMA table_info(${table})`)).map((c) => c.name);
+  if (!cols.includes(column)) {
+    try {
+      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    } catch (e) {
+      if (!/duplicate column/i.test(e.message)) throw e; // another instance migrated first
+    }
+  }
 }
-addColumn('units', 'company_id', 'INTEGER REFERENCES companies(id)');
-addColumn('quotes', 'company', 'TEXT');
-addColumn('contracts', 'company', 'TEXT');
-addColumn('companies', 'secondary_color', 'TEXT');
-addColumn('companies', 'font_family', 'TEXT');
-addColumn('companies', 'font_file', 'TEXT');
-addColumn('companies', 'stamp', 'TEXT');
-addColumn('companies', 'master_plan', 'TEXT');
-addColumn('contracts', 'extras', 'TEXT');
 
 const DEFAULT_SETTINGS = {
   currency: 'ج.م',
@@ -152,18 +209,15 @@ const DEFAULT_SETTINGS = {
   contract_template: DEFAULT_CONTRACT_TEMPLATE,
 };
 
-const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
-for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) insertSetting.run(k, v);
-
-function getSettings() {
+async function getSettings() {
   const out = {};
-  for (const row of db.prepare('SELECT key, value FROM settings').all()) out[row.key] = row.value;
+  for (const row of await db.all('SELECT key, value FROM settings')) out[row.key] = row.value;
   return out;
 }
 
-function setSetting(key, value) {
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-    .run(key, value == null ? '' : String(value));
+async function setSetting(key, value) {
+  await db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    key, value == null ? '' : String(value));
 }
 
 // --- Units CSV parsing (MODEL NO., FLOOR, CODE, AREA, GARDEN AREA [, ROOMS, BATHROOMS, PRICE, STATUS])
@@ -253,35 +307,29 @@ function unitsFromCsv(text) {
 // Upsert units: inserts new codes; for existing codes updates physical data and
 // only overwrites optional columns (rooms/price/status) when the CSV provides them.
 // Unit codes are unique across the whole system; a code already owned by another company is skipped.
-function importUnits(units, companyId) {
-  const existing = db.prepare('SELECT id, company_id FROM units WHERE code = ?');
-  const insert = db.prepare(`INSERT INTO units (code, building, entrance, floor, model_no, area, garden_area, rooms, bathrooms, price, status, company_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  const update = db.prepare(`UPDATE units SET building = ?, entrance = ?, floor = ?, model_no = ?, area = ?, garden_area = ?,
-    rooms = COALESCE(?, rooms), bathrooms = COALESCE(?, bathrooms), price = COALESCE(?, price), status = COALESCE(?, status),
-    updated_at = datetime('now') WHERE id = ?`);
-  const insertModel = db.prepare('INSERT OR IGNORE INTO models (model_no) VALUES (?)');
+async function importUnits(units, companyId) {
+  const existing = new Map((await db.all('SELECT id, code, company_id FROM units')).map((u) => [u.code.toUpperCase(), u]));
+  const statements = [];
   let added = 0, updated = 0;
   const skipped = [];
-  db.exec('BEGIN');
-  try {
-    for (const u of units) {
-      const row = existing.get(u.code);
-      if (row && companyId && row.company_id && row.company_id !== companyId) { skipped.push(u.code); continue; }
-      if (u.model_no) insertModel.run(u.model_no);
-      if (row) {
-        update.run(u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status, row.id);
-        updated++;
-      } else {
-        insert.run(u.code, u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status || 'available', companyId || null);
-        added++;
-      }
+  for (const u of units) {
+    const row = existing.get(u.code);
+    if (row && companyId && row.company_id && row.company_id !== companyId) { skipped.push(u.code); continue; }
+    if (u.model_no) statements.push(['INSERT OR IGNORE INTO models (model_no) VALUES (?)', u.model_no]);
+    if (row) {
+      statements.push([`UPDATE units SET building = ?, entrance = ?, floor = ?, model_no = ?, area = ?, garden_area = ?,
+        rooms = COALESCE(?, rooms), bathrooms = COALESCE(?, bathrooms), price = COALESCE(?, price), status = COALESCE(?, status),
+        updated_at = datetime('now') WHERE id = ?`,
+      u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status, row.id]);
+      updated++;
+    } else {
+      statements.push([`INSERT OR IGNORE INTO units (code, building, entrance, floor, model_no, area, garden_area, rooms, bathrooms, price, status, company_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      u.code, u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status || 'available', companyId || null]);
+      added++;
     }
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
   }
+  await db.batch(statements);
   return { added, updated, skipped };
 }
 
@@ -291,16 +339,17 @@ const COMPANY_FIELDS = ['name', 'project_name', 'address', 'phone', 'logo', 'own
   'font_family', 'font_file', 'stamp', 'master_plan', 'contract_template', 'quote_terms'];
 
 function listCompanies() {
-  return db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM units u WHERE u.company_id = c.id) AS units
-    FROM companies c ORDER BY c.id`).all();
+  return db.all(`SELECT c.*, (SELECT COUNT(*) FROM units u WHERE u.company_id = c.id) AS units
+    FROM companies c ORDER BY c.id`);
 }
 
 function getCompany(id) {
-  return db.prepare('SELECT * FROM companies WHERE id = ?').get(id) || null;
+  if (id == null || id === '') return Promise.resolve(null);
+  return db.get('SELECT * FROM companies WHERE id = ?', id);
 }
 
-function defaultCompanyId() {
-  return db.prepare('SELECT id FROM companies ORDER BY id LIMIT 1').get()?.id ?? null;
+async function defaultCompanyId() {
+  return (await db.get('SELECT id FROM companies ORDER BY id LIMIT 1'))?.id ?? null;
 }
 
 // The identity frozen on a quote/contract when it is issued.
@@ -310,30 +359,46 @@ function companySnapshot(company) {
   return rest;
 }
 
-if (db.prepare('SELECT COUNT(*) AS c FROM companies').get().c === 0) {
+// --- Schema, migrations and first-run data. Every step is idempotent, so concurrent
+// cold starts (several serverless instances at once) cannot create duplicates.
+async function initialize() {
+  const c = getClient();
+  if (!DB_URL || DB_URL.startsWith('file:')) await c.executeMultiple('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+  await db.exec(SCHEMA);
+  for (const m of MIGRATIONS) await addColumn(...m);
+  await db.batch(Object.entries(DEFAULT_SETTINGS).map(([k, v]) => ['INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', k, v]));
+
   // Carry over the single-company settings of earlier versions, if any.
-  const old = getSettings();
-  db.prepare(`INSERT INTO companies (name, project_name, address, phone, logo, owner_name, owner_phone, quote_terms)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    old.company_name || 'عمر نجم جروب', old.project_name || 'كمباوند شرفات', old.company_address || '',
-    old.company_phone || '', old.company_logo || null, old.owner_name || '', old.owner_phone || '', null,
-  );
+  const old = await getSettings();
+  await db.run(`INSERT INTO companies (name, project_name, address, phone, logo, owner_name, owner_phone)
+    SELECT ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM companies)`,
+  old.company_name || 'عمر نجم جروب', old.project_name || 'كمباوند شرفات', old.company_address || '',
+  old.company_phone || '', old.company_logo || null, old.owner_name || '', old.owner_phone || '');
+
+  if ((await db.get('SELECT COUNT(*) AS c FROM units')).c === 0) {
+    const csvPath = path.join(__dirname, '..', 'data', 'units.csv');
+    if (fs.existsSync(csvPath)) await importUnits(unitsFromCsv(fs.readFileSync(csvPath, 'utf8')));
+  }
+  await db.run('UPDATE units SET company_id = ? WHERE company_id IS NULL', await defaultCompanyId());
+
+  if ((await db.get("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'")).c === 0) {
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    const password = process.env.ADMIN_PASSWORD || 'admin123';
+    const r = await db.run(`INSERT OR IGNORE INTO users (username, password_hash, full_name, role, must_change_password)
+      VALUES (?, ?, 'مدير النظام', 'admin', 1)`, username, bcrypt.hashSync(password, 10));
+    if (r.changes) console.log(`[setup] تم إنشاء حساب الأدمن: ${username} / ${process.env.ADMIN_PASSWORD ? '(من ADMIN_PASSWORD)' : password} — سيُطلب تغيير كلمة المرور عند أول دخول.`);
+  }
 }
 
-// --- Seed
-if (db.prepare('SELECT COUNT(*) AS c FROM units').get().c === 0) {
-  const csvPath = path.join(__dirname, '..', 'data', 'units.csv');
-  if (fs.existsSync(csvPath)) importUnits(unitsFromCsv(fs.readFileSync(csvPath, 'utf8')));
-}
-
-db.prepare('UPDATE units SET company_id = ? WHERE company_id IS NULL').run(defaultCompanyId());
-
-if (db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get().c === 0) {
-  const username = process.env.ADMIN_USERNAME || 'admin';
-  const password = process.env.ADMIN_PASSWORD || 'admin123';
-  db.prepare(`INSERT INTO users (username, password_hash, full_name, role, must_change_password)
-    VALUES (?, ?, 'مدير النظام', 'admin', 1)`).run(username, bcrypt.hashSync(password, 10));
-  console.log(`[setup] تم إنشاء حساب الأدمن: ${username} / ${process.env.ADMIN_PASSWORD ? '(من ADMIN_PASSWORD)' : password} — سيُطلب تغيير كلمة المرور عند أول دخول.`);
+let readyPromise = null;
+function ready() {
+  if (!readyPromise) {
+    readyPromise = initialize().catch((e) => {
+      readyPromise = null; // retry on the next request
+      throw e;
+    });
+  }
+  return readyPromise;
 }
 
 // Unit with model data merged in (unit values override model values).
@@ -354,28 +419,28 @@ function hydrateUnit(u) {
   };
 }
 
-function getUnitByCode(code) {
-  return hydrateUnit(db.prepare(`${UNIT_SELECT} WHERE u.code = ?`).get(String(code || '').trim()));
+async function getUnitByCode(code) {
+  return hydrateUnit(await db.get(`${UNIT_SELECT} WHERE u.code = ?`, String(code || '').trim()));
 }
 
-function getUnitById(id) {
-  return hydrateUnit(db.prepare(`${UNIT_SELECT} WHERE u.id = ?`).get(id));
+async function getUnitById(id) {
+  return hydrateUnit(await db.get(`${UNIT_SELECT} WHERE u.id = ?`, id));
 }
 
-function listUnits() {
-  return db.prepare(`${UNIT_SELECT} ORDER BY u.building, u.entrance, u.code`).all().map(hydrateUnit);
+async function listUnits() {
+  return (await db.all(`${UNIT_SELECT} ORDER BY u.building, u.entrance, u.code`)).map(hydrateUnit);
 }
 
-function nextNumber(table, prefix) {
+async function nextNumber(table, prefix) {
   const year = new Date().getFullYear();
   const like = `${prefix}-${year}-%`;
-  const row = db.prepare(`SELECT number FROM ${table} WHERE number LIKE ? ORDER BY id DESC LIMIT 1`).get(like);
+  const row = await db.get(`SELECT number FROM ${table} WHERE number LIKE ? ORDER BY id DESC LIMIT 1`, like);
   const last = row ? Number(row.number.split('-').pop()) : 0;
   return `${prefix}-${year}-${String(last + 1).padStart(4, '0')}`;
 }
 
 module.exports = {
-  db, DATA_DIR, getSettings, setSetting, unitsFromCsv, importUnits,
+  db, DATA_DIR, ConfigError, ready, getSettings, setSetting, unitsFromCsv, importUnits,
   getUnitByCode, getUnitById, listUnits, nextNumber,
   COMPANY_FIELDS, listCompanies, getCompany, defaultCompanyId, companySnapshot,
 };

@@ -91,7 +91,7 @@ function contractValues({ company, contract, client, unit, plan, quoteNumber, ex
     contract_down_payment_words: amountInWords(priceDown),
     contract_remaining: f.money(priceRemaining),
     contract_remaining_words: amountInWords(priceRemaining),
-    master_plan_image: company.master_plan ? `/uploads/${company.master_plan}` : null,
+    master_plan_image: f.upload(company.master_plan),
     unit_plan_image: unit.image || null,
     building: unit.building,
     entrance: unit.entrance,
@@ -163,7 +163,7 @@ function applySignatures(html, contract) {
   };
   // The company stamp is applied together with the company's signature.
   const stamp = contract.company?.stamp && contract.company_signed_at
-    ? `<span class="sig-stamp-img"><img src="/uploads/${f.escapeHtml(contract.company.stamp)}" alt="ختم"></span>`
+    ? `<span class="sig-stamp-img"><img src="${f.escapeHtml(f.upload(contract.company.stamp))}" alt="ختم"></span>`
     : '............................';
   return html
     .replace(/<span class="sig-slot" data-sig="(company|client)"><\/span>/g, (m, party) => img(party))

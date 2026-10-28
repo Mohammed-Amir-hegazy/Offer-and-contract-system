@@ -8,7 +8,7 @@
     <div class="row"><h3 style="margin:0">نموذج <%= m.model_no %></h3><span class="spacer"></span><span class="muted"><%= m.units %> وحدة</span></div>
     <p class="muted" style="margin:4px 0 10px;font-size:.82rem"><span class="ltr"><%= m.codes %></span><br>المساحة: <%= f.area(m.min_area) %><%= m.min_area !== m.max_area ? ' – ' + f.area(m.max_area) : '' %> م²</p>
     <div class="unit-image" style="min-height:140px;margin-bottom:10px">
-      <% if (m.image) { %><a href="/uploads/<%= m.image %>" target="_blank"><img src="/uploads/<%= m.image %>" alt="" style="max-height:200px"></a><% } else { %><span class="muted">لا توجد صورة</span><% } %>
+      <% if (m.image) { %><a href="<%= f.upload(m.image) %>" target="_blank"><img src="<%= f.upload(m.image) %>" alt="" style="max-height:200px"></a><% } else { %><span class="muted">لا توجد صورة</span><% } %>
     </div>
     <div class="field"><input type="file" name="image" accept="image/*"></div>
     <% if (m.image) { %><label class="check" style="margin-bottom:10px"><input type="checkbox" name="remove_image" value="1"> حذف الصورة</label><% } %>

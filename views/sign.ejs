@@ -2,7 +2,7 @@
 <%- include('partials/company-style') %>
 <div class="doc" style="margin-bottom:18px">
   <div class="row" style="margin-bottom:12px">
-    <% if (company.logo) { %><img src="/uploads/<%= company.logo %>" alt="" style="max-height:50px"><% } %>
+    <% if (company.logo) { %><img src="<%= f.upload(company.logo) %>" alt="" style="max-height:50px"><% } %>
     <div><strong><%= company.name %></strong><br><span class="muted">توقيع إلكتروني على العقد <span class="ltr"><%= contract.number %></span></span></div>
     <span class="spacer"></span>
     <span class="badge badge-<%= contract.status %>"><%= f.CONTRACT_STATUS_LABELS[contract.status] %></span>
@@ -45,8 +45,8 @@
       <label class="check"><input type="checkbox" name="agree" value="1" required> أقر بأنني قرأت العقد بالكامل وأوافق على جميع بنوده، وأن هذا التوقيع الإلكتروني صادر مني.</label>
       <div class="row" style="margin-top:16px"><button class="btn btn-lg btn-success" type="submit" id="sign-btn">اعتماد التوقيع</button></div>
     </form>
-    <script src="/static/js/signature-pad.js"></script>
+    <script src="/js/signature-pad.js"></script>
   <% } %>
 </div>
-<div class="powered no-print">منصة التوقيع الإلكتروني <img src="/static/img/ebtikar-mark.svg" alt=""> Ebtikar</div>
+<div class="powered no-print">منصة التوقيع الإلكتروني <img src="/img/ebtikar-mark.svg" alt=""> Ebtikar</div>
 <%- include('partials/foot') %>

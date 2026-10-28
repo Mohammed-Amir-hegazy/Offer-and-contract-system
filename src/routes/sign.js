@@ -1,21 +1,21 @@
-const express = require('express');
+const { asyncRouter } = require('../router');
 const { db, getSettings, getCompany, companySnapshot } = require('../db');
 const { applySignatures, hashBody } = require('../template');
 const { nowLocal } = require('../format');
 
-const router = express.Router();
+const router = asyncRouter();
 
 // A signature must be a reasonably sized PNG data URL produced by the signature pad.
 const SIGNATURE_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 const MAX_SIGNATURE_LENGTH = 1_500_000;
 
-function findByToken(token) {
+async function findByToken(token) {
   if (!token || token.length < 20) return null;
-  const c = db.prepare('SELECT * FROM contracts WHERE client_token = ? OR company_token = ?').get(token, token);
+  const c = await db.get('SELECT * FROM contracts WHERE client_token = ? OR company_token = ?', token, token);
   if (!c) return null;
   const party = c.client_token === token ? 'client' : 'company';
   const unit = JSON.parse(c.unit_snapshot);
-  const company = c.company ? JSON.parse(c.company) : companySnapshot(getCompany(unit.company_id)) || {};
+  const company = c.company ? JSON.parse(c.company) : companySnapshot(await getCompany(unit.company_id)) || {};
   return { contract: { ...c, client: JSON.parse(c.client), company }, party };
 }
 
@@ -33,16 +33,16 @@ function render(res, found, extra = {}) {
   });
 }
 
-router.get('/:token', (req, res) => {
-  const found = findByToken(req.params.token);
+router.get('/:token', async (req, res) => {
+  const found = await findByToken(req.params.token);
   if (!found || found.contract.status === 'cancelled') {
     return res.status(404).render('error', { title: 'رابط غير صالح', message: 'رابط التوقيع غير صالح أو تم إلغاؤه' });
   }
   render(res, found);
 });
 
-router.post('/:token', (req, res) => {
-  const found = findByToken(req.params.token);
+router.post('/:token', async (req, res) => {
+  const found = await findByToken(req.params.token);
   if (!found || found.contract.status === 'cancelled') {
     return res.status(404).render('error', { title: 'رابط غير صالح', message: 'رابط التوقيع غير صالح أو تم إلغاؤه' });
   }
@@ -67,15 +67,15 @@ router.post('/:token', (req, res) => {
   const ip = (req.ip || '').replace(/^::ffff:/, '');
   const now = nowLocal();
   // Guard against a double submit: only sign if this party has not signed yet.
-  const result = db.prepare(`UPDATE contracts SET ${party}_signature = ?, ${party}_signer_name = ?, ${party}_signed_at = ?, ${party}_signed_ip = ?
-    WHERE id = ? AND ${party}_signed_at IS NULL`).run(signature, name, now, ip, contract.id);
+  const result = await db.run(`UPDATE contracts SET ${party}_signature = ?, ${party}_signer_name = ?, ${party}_signed_at = ?, ${party}_signed_ip = ?
+    WHERE id = ? AND ${party}_signed_at IS NULL`, signature, name, now, ip, contract.id);
 
   if (result.changes) {
-    const updated = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contract.id);
+    const updated = await db.get('SELECT * FROM contracts WHERE id = ?', contract.id);
     if (updated.client_signed_at && updated.company_signed_at) {
-      db.prepare("UPDATE contracts SET status = 'signed' WHERE id = ?").run(contract.id);
-      if (getSettings().auto_status_on_contract === '1') {
-        db.prepare("UPDATE units SET status = 'sold', updated_at = datetime('now') WHERE id = ?").run(contract.unit_id);
+      await db.run("UPDATE contracts SET status = 'signed' WHERE id = ?", contract.id);
+      if ((await getSettings()).auto_status_on_contract === '1') {
+        await db.run("UPDATE units SET status = 'sold', updated_at = datetime('now') WHERE id = ?", contract.unit_id);
       }
     }
   }

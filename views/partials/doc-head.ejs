@@ -1,7 +1,7 @@
 <%# Document header — always the issuing company's identity. %>
 <div class="doc-head">
   <div>
-    <% if (company.logo) { %><img src="/uploads/<%= company.logo %>" alt="<%= company.name %>"><% } %>
+    <% if (company.logo) { %><img src="<%= f.upload(company.logo) %>" alt="<%= company.name %>"><% } %>
     <div><strong><%= company.name %></strong></div>
     <% if (company.project_name) { %><div class="muted"><%= company.project_name %></div><% } %>
     <% if (company.address || company.phone) { %><div class="muted" style="font-size:12px"><%= [company.address, company.phone].filter(Boolean).join(' — ') %></div><% } %>

@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <% const brandCompany = typeof company !== 'undefined' && company && !user ? company : null; %>
 <title><%= title %> — <%= brandCompany ? brandCompany.name : 'ابتكار' %></title>
-<link rel="icon" href="<%= brandCompany && brandCompany.logo ? '/uploads/' + brandCompany.logo : '/static/img/favicon.svg' %>">
-<link rel="stylesheet" href="/static/css/style.css">
+<link rel="icon" href="<%= brandCompany && brandCompany.logo ? f.upload(brandCompany.logo) : '/img/favicon.svg' %>">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <% if (user) { %>
 <header class="topbar">
   <div class="inner">
     <a class="brand" href="/">
-      <img src="/static/img/ebtikar-logo-dark.png" alt="Ebtikar — ابتكار">
+      <img src="/img/ebtikar-logo-dark.png" alt="Ebtikar — ابتكار">
       <span class="brand-sub">عروض الأسعار والعقود</span>
     </a>
     <nav class="nav">
