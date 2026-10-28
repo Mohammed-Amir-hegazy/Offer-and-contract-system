@@ -128,6 +128,9 @@ addColumn('contracts', 'company', 'TEXT');
 addColumn('companies', 'secondary_color', 'TEXT');
 addColumn('companies', 'font_family', 'TEXT');
 addColumn('companies', 'font_file', 'TEXT');
+addColumn('companies', 'stamp', 'TEXT');
+addColumn('companies', 'master_plan', 'TEXT');
+addColumn('contracts', 'extras', 'TEXT');
 
 const DEFAULT_SETTINGS = {
   currency: 'ج.م',
@@ -285,7 +288,7 @@ function importUnits(units, companyId) {
 // --- Companies
 // Each company has its own print identity (logo, colour, details, signatory, contract wording).
 const COMPANY_FIELDS = ['name', 'project_name', 'address', 'phone', 'logo', 'owner_name', 'owner_phone', 'primary_color', 'secondary_color',
-  'font_family', 'font_file', 'contract_template', 'quote_terms'];
+  'font_family', 'font_file', 'stamp', 'master_plan', 'contract_template', 'quote_terms'];
 
 function listCompanies() {
   return db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM units u WHERE u.company_id = c.id) AS units
@@ -312,7 +315,7 @@ if (db.prepare('SELECT COUNT(*) AS c FROM companies').get().c === 0) {
   const old = getSettings();
   db.prepare(`INSERT INTO companies (name, project_name, address, phone, logo, owner_name, owner_phone, quote_terms)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    old.company_name || 'شركة التطوير العقاري', old.project_name || 'نجم كمبوند 5', old.company_address || '',
+    old.company_name || 'عمر نجم جروب', old.project_name || 'كمباوند شرفات', old.company_address || '',
     old.company_phone || '', old.company_logo || null, old.owner_name || '', old.owner_phone || '', null,
   );
 }

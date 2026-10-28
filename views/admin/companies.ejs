@@ -25,6 +25,12 @@
     <div class="field"><label>أو ارفع خط الشركة <span class="hint">(ttf, otf, woff)</span></label><input type="file" name="font" accept=".ttf,.otf,.woff,.woff2">
       <% if (c.font_file) { %><label class="check" style="margin-top:6px"><input type="checkbox" name="remove_font" value="1"> حذف الخط المرفوع (يُستخدم الخط المختار)</label><% } %>
     </div>
+    <div class="field"><label>ختم الشركة <span class="hint">(يظهر في العقد بعد توقيع الشركة — PNG بخلفية شفافة)</span></label><input type="file" name="stamp" accept="image/*">
+      <% if (c.stamp) { %><div class="row" style="margin-top:6px"><img src="/uploads/<%= c.stamp %>" alt="" style="max-height:50px"><label class="check"><input type="checkbox" name="remove_stamp" value="1"> حذف</label></div><% } %>
+    </div>
+    <div class="field"><label>المخطط العام للمشروع <span class="hint">(ملحق رقم 2 في العقد)</span></label><input type="file" name="master_plan" accept="image/*">
+      <% if (c.master_plan) { %><div class="row" style="margin-top:6px"><a href="/uploads/<%= c.master_plan %>" target="_blank"><img src="/uploads/<%= c.master_plan %>" alt="" style="max-height:50px"></a><label class="check"><input type="checkbox" name="remove_master_plan" value="1"> حذف</label></div><% } %>
+    </div>
     <div class="field"><label>اسم صاحب الشركة / الموقّع</label><input type="text" name="owner_name" value="<%= c.owner_name || '' %>"></div>
     <div class="field"><label>موبايل الموقّع <span class="hint">(لرابط التوقيع واتساب)</span></label><input type="text" name="owner_phone" value="<%= c.owner_phone || '' %>" dir="ltr" placeholder="01xxxxxxxxx"></div>
     <div class="field" style="grid-column: 1 / -1"><label>ملاحظات أسفل عرض السعر <span class="hint">(فارغ = الملاحظات العامة من الإعدادات)</span></label><textarea name="quote_terms" style="min-height:60px"><%= c.quote_terms || '' %></textarea></div>

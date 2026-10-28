@@ -27,7 +27,7 @@ function imageUpload(req) {
 }
 const withImage = (field) => (req, res, next) => imageUpload(req).single(field)(req, res, next);
 
-// Company identity uploads: a logo image and an optional font file.
+// Company identity uploads: logo, stamp and master-plan images, and an optional font file.
 const FONT_EXTS = ['.ttf', '.otf', '.woff', '.woff2'];
 function identityUpload(req, res, next) {
   const ext = (file) => (file.fieldname === 'font' ? path.extname(file.originalname).toLowerCase() : IMAGE_TYPES[file.mimetype]);
@@ -38,7 +38,7 @@ function identityUpload(req, res, next) {
     }),
     limits: { fileSize: 8 * 1024 * 1024 },
     fileFilter: (r, file, cb) => cb(null, file.fieldname === 'font' ? FONT_EXTS.includes(ext(file)) : !!IMAGE_TYPES[file.mimetype]),
-  }).fields([{ name: 'logo', maxCount: 1 }, { name: 'font', maxCount: 1 }])(req, res, next);
+  }).fields([{ name: 'logo', maxCount: 1 }, { name: 'font', maxCount: 1 }, { name: 'stamp', maxCount: 1 }, { name: 'master_plan', maxCount: 1 }])(req, res, next);
 }
 const uploaded = (req, field) => req.files?.[field]?.[0]?.filename || null;
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -281,9 +281,10 @@ router.get('/companies', (req, res) => {
 router.post('/companies', identityUpload, (req, res) => {
   const c = companyFields(req.body);
   if (!c.name) { req.flash('error', 'اسم الشركة مطلوب'); return res.redirect('/admin/companies'); }
-  db.prepare(`INSERT INTO companies (name, project_name, address, phone, owner_name, owner_phone, primary_color, secondary_color, font_family, quote_terms, logo, font_file)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(c.name, c.project_name, c.address, c.phone, c.owner_name, c.owner_phone, c.primary_color,
-    c.secondary_color, c.font_family, c.quote_terms, uploaded(req, 'logo'), uploaded(req, 'font'));
+  db.prepare(`INSERT INTO companies (name, project_name, address, phone, owner_name, owner_phone, primary_color, secondary_color, font_family, quote_terms,
+    logo, font_file, stamp, master_plan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(c.name, c.project_name, c.address, c.phone, c.owner_name,
+    c.owner_phone, c.primary_color, c.secondary_color, c.font_family, c.quote_terms, uploaded(req, 'logo'), uploaded(req, 'font'),
+    uploaded(req, 'stamp'), uploaded(req, 'master_plan'));
   req.flash('success', `تمت إضافة ${c.name} — انقل وحداتها إليها من صفحة الوحدات أو استورد ملف وحداتها`);
   res.redirect('/admin/companies');
 });
@@ -294,9 +295,11 @@ router.post('/companies/:id(\\d+)', identityUpload, (req, res) => {
   const c = companyFields(req.body);
   const logo = req.body.remove_logo ? null : uploaded(req, 'logo') || company.logo;
   const font = req.body.remove_font ? null : uploaded(req, 'font') || company.font_file;
+  const stamp = req.body.remove_stamp ? null : uploaded(req, 'stamp') || company.stamp;
+  const masterPlan = req.body.remove_master_plan ? null : uploaded(req, 'master_plan') || company.master_plan;
   db.prepare(`UPDATE companies SET name = ?, project_name = ?, address = ?, phone = ?, owner_name = ?, owner_phone = ?, primary_color = ?, secondary_color = ?,
-    font_family = ?, quote_terms = ?, logo = ?, font_file = ? WHERE id = ?`).run(c.name || company.name, c.project_name, c.address, c.phone, c.owner_name,
-    c.owner_phone, c.primary_color, c.secondary_color, c.font_family, c.quote_terms, logo, font, company.id);
+    font_family = ?, quote_terms = ?, logo = ?, font_file = ?, stamp = ?, master_plan = ? WHERE id = ?`).run(c.name || company.name, c.project_name, c.address,
+    c.phone, c.owner_name, c.owner_phone, c.primary_color, c.secondary_color, c.font_family, c.quote_terms, logo, font, stamp, masterPlan, company.id);
   req.flash('success', `تم حفظ بيانات ${c.name || company.name} — تنطبق على العروض والعقود الجديدة`);
   res.redirect(`/admin/companies#c${company.id}`);
 });

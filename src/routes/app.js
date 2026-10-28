@@ -172,13 +172,26 @@ function readClient(body) {
   const s = (k) => String(body[k] || '').trim();
   return {
     name: s('clientName'), national_id: s('clientNationalId'), nationality: s('clientNationality') || 'مصري',
-    address: s('clientAddress'), phone: s('clientPhone'), email: s('clientEmail'),
+    address: s('clientAddress'), correspondence_address: s('clientCorrespondenceAddress'), phone: s('clientPhone'), email: s('clientEmail'),
+  };
+}
+
+// Contract-only unit details not kept on the unit itself (roof, storage, parking spots).
+function readExtras(body, plan) {
+  const count = (v, d) => {
+    const n = Number(v);
+    return v === undefined || v === '' || !Number.isFinite(n) ? d : Math.max(0, Math.min(20, Math.round(n)));
+  };
+  return {
+    has_roof: [true, 'true', '1', 'on'].includes(Array.isArray(body.hasRoof) ? body.hasRoof.at(-1) : body.hasRoof),
+    parking_count: count(body.parkingCount, plan?.includeGarage ? 1 : 0),
+    storage_count: count(body.storageCount, 0),
   };
 }
 
 // Uses the company's own contract wording, or the general template if it has none.
-function renderContractBody(settings, company, contract, client, unit, plan, quoteNumber) {
-  const values = contractValues({ company, contract, client, unit, plan, quoteNumber });
+function renderContractBody(settings, company, contract, client, unit, plan, quoteNumber, extras) {
+  const values = contractValues({ company, contract, client, unit, plan, quoteNumber, extras });
   return renderTemplate(company?.contract_template || settings.contract_template || '', values, plan);
 }
 
@@ -207,11 +220,12 @@ router.post('/contracts', requirePermission('can_contract'), (req, res) => {
   const number = nextNumber('contracts', 'C');
   const snapshot = unitPublic(unit);
   const company = getCompany(unit.company_id);
-  const body = renderContractBody(settings, company, { number, contract_date: contractDate }, client, snapshot, plan, quoteNumber);
-  const info = db.prepare(`INSERT INTO contracts (number, quote_id, unit_id, client, unit_snapshot, inputs, plan, contract_date, body_html, created_by, company)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+  const extras = readExtras(req.body, plan);
+  const body = renderContractBody(settings, company, { number, contract_date: contractDate }, client, snapshot, plan, quoteNumber, extras);
+  const info = db.prepare(`INSERT INTO contracts (number, quote_id, unit_id, client, unit_snapshot, inputs, plan, contract_date, body_html, created_by, company, extras)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     number, quoteId, unit.id, JSON.stringify(client), JSON.stringify(snapshot), JSON.stringify(inputs), JSON.stringify(plan), contractDate, body, req.user.id,
-    JSON.stringify(companySnapshot(company)),
+    JSON.stringify(companySnapshot(company)), JSON.stringify(extras),
   );
   if (settings.auto_status_on_contract === '1' && unit.status === 'available') {
     db.prepare("UPDATE units SET status = 'reserved', updated_at = datetime('now') WHERE id = ?").run(unit.id);
@@ -270,7 +284,8 @@ router.post('/contracts/:id/regenerate', requirePermission('can_contract'), (req
   const quote = contract.quote_id ? db.prepare('SELECT number FROM quotes WHERE id = ?').get(contract.quote_id) : null;
   // Re-drafting also refreshes the company identity from the unit's current company.
   const company = getCompany(getUnitById(contract.unit_id)?.company_id);
-  const body = renderContractBody(settings, company, contract, contract.client, contract.unit_snapshot, contract.plan, quote?.number);
+  const extras = contract.extras ? JSON.parse(contract.extras) : readExtras({}, contract.plan);
+  const body = renderContractBody(settings, company, contract, contract.client, contract.unit_snapshot, contract.plan, quote?.number, extras);
   db.prepare('UPDATE contracts SET body_html = ?, company = ?, body_hash = CASE WHEN client_token IS NULL THEN NULL ELSE ? END WHERE id = ?')
     .run(body, JSON.stringify(companySnapshot(company)), hashBody(body), contract.id);
   req.flash('success', 'تمت إعادة صياغة العقد من القالب الحالي');

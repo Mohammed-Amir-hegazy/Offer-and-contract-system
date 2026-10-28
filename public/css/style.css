@@ -246,3 +246,28 @@ details.edit summary { cursor: pointer; color: var(--primary); }
 
 .company-preview { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 10px; border-inline-start: 6px solid var(--p); box-shadow: inset 0 -3px 0 var(--s); background: #fafafe; }
 .company-preview img { max-height: 36px; }
+
+/* ---------- Long contracts: page breaks, clause headings, plans, stamp */
+.contract-body .page-break { border-top: 2px dashed var(--border); margin: 28px 0; }
+.contract-body h2.clause { text-align: center; color: #c0392b; color: var(--brand-2, #c0392b); font-size: 1.15rem; margin: 22px 0 2px; text-decoration: underline; }
+.contract-body h3.clause-title { text-align: center; color: var(--brand); font-size: 1rem; margin: 0 0 10px; }
+.contract-body h2.annex { text-align: center; color: var(--brand); font-size: 1.05rem; margin: 6px 0 14px; text-decoration: underline; }
+.contract-body .contract-cover { min-height: 60vh; padding-top: 18vh; }
+.contract-body .contract-cover h1 { margin-bottom: 70px; }
+.contract-body .contract-cover p { font-size: 1.15rem; margin-bottom: 70px; }
+.contract-body ul.annexes { list-style: none; padding: 0; }
+.contract-body ul.annexes li { color: var(--brand); text-decoration: underline; }
+.contract-body table.signatures td { text-align: right; padding: 10px 14px; }
+.contract-body .plan-img { display: block; max-width: 100%; max-height: 900px; margin: 0 auto; }
+.contract-body .plan-missing { text-align: center; color: var(--muted); padding: 60px 0; border: 1px dashed var(--border); }
+.sig-stamp-img img { max-width: 150px; max-height: 120px; display: inline-block; opacity: .9; }
+@media print {
+  .contract-body .page-break { border: none; margin: 0; break-after: page; page-break-after: always; }
+  .contract-body .contract-cover { min-height: auto; padding-top: 120px; }
+  .contract-body h2.clause, .contract-body h3.clause-title, .contract-body h2.annex { break-after: avoid; }
+  .contract-body p { orphans: 3; widows: 3; }
+}
+@media print {
+  .contract-body table.signatures { break-inside: avoid; page-break-inside: avoid; }
+  .contract-body table.installments thead { display: table-header-group; }
+}

@@ -51,8 +51,8 @@ function tafqeet(value) {
   return groups.join(' و');
 }
 
-function amountInWords(value, currency = 'جنيه مصري') {
-  return `${tafqeet(value)} ${currency} لا غير`;
+function amountInWords(value, currency = 'جنيهاً مصرياً') {
+  return `فقط ${tafqeet(value)} ${currency} لا غير`;
 }
 
 module.exports = { tafqeet, amountInWords };
