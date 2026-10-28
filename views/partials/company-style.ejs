@@ -1,0 +1,14 @@
+<%# Print identity of the issuing company: colours + font, scoped to documents only.
+    Values are validated on save (hex colours, font from a fixed list, random file names), so they are safe to emit raw in CSS. %>
+<%
+  const hex = (c, d) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : d);
+  const primary = hex(company.primary_color, '#1f2937');
+  const secondary = hex(company.secondary_color, primary);
+  const googleFont = !company.font_file && f.COMPANY_FONTS.includes(company.font_family) ? company.font_family : (company.font_file ? null : 'Cairo');
+  const fontFile = /^[a-f0-9]+\.(ttf|otf|woff2?)$/.test(company.font_file || '') ? company.font_file : null;
+%>
+<% if (googleFont) { %><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=<%- googleFont.replace(/ /g, '+') %>:wght@400;700&display=swap"><% } %>
+<style>
+<% if (fontFile) { %>@font-face { font-family: 'CompanyFont'; src: url('/uploads/<%- fontFile %>'); font-display: swap; }<% } %>
+.doc { --company-color: <%- primary %>; --company-accent: <%- secondary %>; font-family: <%- fontFile ? "'CompanyFont'" : `'${googleFont}'` %>, 'Cairo', Tahoma, sans-serif; }
+</style>

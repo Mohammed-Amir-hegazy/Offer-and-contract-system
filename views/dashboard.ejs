@@ -1,5 +1,5 @@
 <%- include('partials/head') %>
-<div class="page-head"><h1>أهلاً <%= user.full_name %></h1><span class="muted"><%= settings.project_name %></span></div>
+<div class="page-head"><h1>أهلاً <%= user.full_name %></h1></div>
 
 <div class="choices">
   <% if (user.role === 'admin' || user.can_quote) { %>

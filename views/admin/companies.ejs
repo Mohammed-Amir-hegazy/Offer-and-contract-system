@@ -1,0 +1,65 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>الشركات وهوياتها</h1></div>
+<%- include('../partials/admin-nav') %>
+<div class="alert alert-warning">
+  واجهة السيستم بهوية ابتكار. أما عروض الأسعار والعقود وصفحة التوقيع فتظهر بهوية الشركة المالكة للوحدة: اللوجو والألوان والخط وبياناتها.
+  أي تعديل هنا يسري على العروض والعقود الجديدة فقط؛ المستندات السابقة تحتفظ بالهوية التي صدرت بها.
+</div>
+
+<% const identityFields = (c) => { %>
+  <div class="grid grid-3">
+    <div class="field"><label>اسم الشركة</label><input type="text" name="name" value="<%= c.name || '' %>" required></div>
+    <div class="field"><label>اسم المشروع</label><input type="text" name="project_name" value="<%= c.project_name || '' %>"></div>
+    <div class="field"><label>تليفون الشركة</label><input type="text" name="phone" value="<%= c.phone || '' %>" dir="ltr"></div>
+    <div class="field" style="grid-column: span 2"><label>العنوان</label><input type="text" name="address" value="<%= c.address || '' %>"></div>
+    <div class="field"><label>اللوجو</label><input type="file" name="logo" accept="image/*">
+      <% if (c.logo) { %><div class="row" style="margin-top:6px"><img src="/uploads/<%= c.logo %>" alt="" style="max-height:44px"><label class="check"><input type="checkbox" name="remove_logo" value="1"> حذف</label></div><% } %>
+    </div>
+    <div class="field"><label>اللون الأساسي</label><input type="color" name="primary_color" value="<%= c.primary_color || '#1f2937' %>" style="height:42px;padding:3px"></div>
+    <div class="field"><label>اللون الثانوي</label><input type="color" name="secondary_color" value="<%= c.secondary_color || c.primary_color || '#1f2937' %>" style="height:42px;padding:3px"></div>
+    <div class="field"><label>الخط <% if (c.font_file) { %><span class="badge badge-available">الخط المرفوع هو المستخدم</span><% } %></label>
+      <select name="font_family">
+        <% f.COMPANY_FONTS.forEach(font => { %><option value="<%= font %>" <%= (c.font_family || 'Cairo') === font ? 'selected' : '' %> style="font-family:'<%= font %>'"><%= font %></option><% }) %>
+      </select>
+    </div>
+    <div class="field"><label>أو ارفع خط الشركة <span class="hint">(ttf, otf, woff)</span></label><input type="file" name="font" accept=".ttf,.otf,.woff,.woff2">
+      <% if (c.font_file) { %><label class="check" style="margin-top:6px"><input type="checkbox" name="remove_font" value="1"> حذف الخط المرفوع (يُستخدم الخط المختار)</label><% } %>
+    </div>
+    <div class="field"><label>اسم صاحب الشركة / الموقّع</label><input type="text" name="owner_name" value="<%= c.owner_name || '' %>"></div>
+    <div class="field"><label>موبايل الموقّع <span class="hint">(لرابط التوقيع واتساب)</span></label><input type="text" name="owner_phone" value="<%= c.owner_phone || '' %>" dir="ltr" placeholder="01xxxxxxxxx"></div>
+    <div class="field" style="grid-column: 1 / -1"><label>ملاحظات أسفل عرض السعر <span class="hint">(فارغ = الملاحظات العامة من الإعدادات)</span></label><textarea name="quote_terms" style="min-height:60px"><%= c.quote_terms || '' %></textarea></div>
+  </div>
+<% } %>
+
+<% companies.forEach(c => { %>
+<div class="card" id="c<%= c.id %>">
+  <div class="row" style="margin-bottom:14px">
+    <div class="company-preview" style="--p:<%= c.primary_color %>;--s:<%= c.secondary_color || c.primary_color %>">
+      <% if (c.logo) { %><img src="/uploads/<%= c.logo %>" alt=""><% } %>
+      <strong><%= c.name %></strong>
+    </div>
+    <span class="spacer"></span>
+    <span class="muted"><%= c.units %> وحدة</span>
+    <a class="btn btn-sm btn-light" href="/admin/template?company=<%= c.id %>">صيغة العقد <%= c.contract_template ? '(خاصة)' : '(العامة)' %></a>
+  </div>
+  <form method="post" action="/admin/companies/<%= c.id %>" enctype="multipart/form-data">
+    <% identityFields(c) %>
+    <div class="row">
+      <button class="btn" type="submit">حفظ</button>
+      <% if (!c.units && companies.length > 1) { %>
+      <button class="btn btn-danger" type="submit" formaction="/admin/companies/<%= c.id %>/delete" formenctype="application/x-www-form-urlencoded" onclick="return confirm('حذف الشركة؟')">حذف الشركة</button>
+      <% } %>
+    </div>
+  </form>
+</div>
+<% }) %>
+
+<details class="card">
+  <summary style="cursor:pointer;font-weight:700;color:var(--primary)">+ إضافة شركة جديدة</summary>
+  <form method="post" action="/admin/companies" enctype="multipart/form-data" style="margin-top:14px">
+    <% identityFields({}) %>
+    <button class="btn" type="submit">إضافة الشركة</button>
+  </form>
+  <p class="hint">بعد الإضافة: استورد ملف وحدات الشركة من صفحة الوحدات واختر الشركة، أو انقل وحدات موجودة إليها.</p>
+</details>
+<%- include('../partials/foot') %>

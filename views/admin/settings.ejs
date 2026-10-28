@@ -2,21 +2,8 @@
 <% const s = settings; %>
 <div class="page-head"><h1>الإعدادات ونظام السداد</h1></div>
 <%- include('../partials/admin-nav') %>
-<form method="post" action="/admin/settings" enctype="multipart/form-data">
-  <div class="card">
-    <h2>بيانات الشركة</h2>
-    <div class="grid grid-3">
-      <div class="field"><label>اسم الشركة</label><input type="text" name="company_name" value="<%= s.company_name %>"></div>
-      <div class="field"><label>اسم المشروع</label><input type="text" name="project_name" value="<%= s.project_name %>"></div>
-      <div class="field"><label>تليفون الشركة</label><input type="text" name="company_phone" value="<%= s.company_phone %>" dir="ltr"></div>
-      <div class="field" style="grid-column: span 2"><label>عنوان الشركة</label><input type="text" name="company_address" value="<%= s.company_address %>"></div>
-      <div class="field"><label>الشعار (اللوجو)</label><input type="file" name="logo" accept="image/*">
-        <% if (s.company_logo) { %><div class="row" style="margin-top:6px"><img src="/uploads/<%= s.company_logo %>" alt="" style="max-height:40px"><label class="check"><input type="checkbox" name="remove_logo" value="1"> حذف</label></div><% } %>
-      </div>
-      <div class="field"><label>اسم صاحب الشركة / الموقّع عن الشركة</label><input type="text" name="owner_name" value="<%= s.owner_name %>"></div>
-      <div class="field"><label>موبايل صاحب الشركة <span class="hint">(لإرسال رابط التوقيع واتساب)</span></label><input type="text" name="owner_phone" value="<%= s.owner_phone %>" dir="ltr" placeholder="01xxxxxxxxx"></div>
-    </div>
-  </div>
+<form method="post" action="/admin/settings">
+  <div class="alert alert-warning">بيانات وهوية كل شركة (اللوجو، الألوان، الخط، الموقّع) من صفحة <a href="/admin/companies">الشركات وهوياتها</a>. الإعدادات هنا عامة لكل الشركات.</div>
 
   <div class="card">
     <h2>الخصم والمقدم</h2>

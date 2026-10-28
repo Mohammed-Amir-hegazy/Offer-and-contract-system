@@ -36,6 +36,7 @@
             <span class="badge ${STATUS_CLASS[unit.status]}">${esc(unit.statusLabel)}</span>
           </div>
           <div class="unit-facts">
+            ${unit.company_name ? fact('الشركة', esc(unit.company_name)) : ''}
             ${fact('العمارة', esc(unit.building))}
             ${fact('المدخل', esc(unit.entrance))}
             ${fact('الدور', esc(unit.floorLabel))}

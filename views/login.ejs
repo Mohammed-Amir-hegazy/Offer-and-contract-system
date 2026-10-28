@@ -2,9 +2,8 @@
 <div class="login-wrap">
   <div class="card login-card">
     <div class="brand-big">
-      <% if (settings.company_logo) { %><img src="/uploads/<%= settings.company_logo %>" alt=""><% } %>
-      <h1><%= settings.company_name %></h1>
-      <div class="muted">نظام عروض الأسعار والعقود</div>
+      <img src="/static/img/ebtikar-logo.png" alt="Ebtikar — ابتكار">
+      <div class="muted">منصة عروض الأسعار والعقود العقارية</div>
     </div>
     <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
     <form method="post" action="/login">

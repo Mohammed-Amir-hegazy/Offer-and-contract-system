@@ -15,6 +15,10 @@ const CONTRACT_STATUS_LABELS = {
   cancelled: 'ملغي',
 };
 
+// Arabic Google Fonts a company can choose for its printed documents (all have 400 and 700 weights).
+const COMPANY_FONTS = ['Cairo', 'Tajawal', 'Almarai', 'IBM Plex Sans Arabic', 'Noto Kufi Arabic', 'Noto Naskh Arabic',
+  'Amiri', 'El Messiri', 'Changa', 'Readex Pro', 'Markazi Text', 'Harmattan'];
+
 const FREQUENCY_LABELS = { 1: 'شهري', 3: 'ربع سنوي (كل 3 شهور)', 6: 'نصف سنوي (كل 6 شهور)', 12: 'سنوي' };
 
 function money(n) {
@@ -67,6 +71,6 @@ function todayIso() {
 }
 
 module.exports = {
-  FLOOR_LABELS, STATUS_LABELS, CONTRACT_STATUS_LABELS, FREQUENCY_LABELS,
+  FLOOR_LABELS, STATUS_LABELS, CONTRACT_STATUS_LABELS, FREQUENCY_LABELS, COMPANY_FONTS,
   money, area, date, datetime, floorLabel, frequencyLabel, escapeHtml, todayIso, nowLocal,
 };

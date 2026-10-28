@@ -5,7 +5,7 @@ const express = require('express');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const mammoth = require('mammoth');
-const { db, getSettings, setSetting, unitsFromCsv, importUnits, listUnits } = require('../db');
+const { db, getSettings, setSetting, unitsFromCsv, importUnits, listUnits, listCompanies, getCompany, defaultCompanyId } = require('../db');
 const { PLACEHOLDERS, sanitizeTemplate } = require('../template');
 const { DEFAULT_CONTRACT_TEMPLATE } = require('../default-template');
 const f = require('../format');
@@ -26,6 +26,21 @@ function imageUpload(req) {
   });
 }
 const withImage = (field) => (req, res, next) => imageUpload(req).single(field)(req, res, next);
+
+// Company identity uploads: a logo image and an optional font file.
+const FONT_EXTS = ['.ttf', '.otf', '.woff', '.woff2'];
+function identityUpload(req, res, next) {
+  const ext = (file) => (file.fieldname === 'font' ? path.extname(file.originalname).toLowerCase() : IMAGE_TYPES[file.mimetype]);
+  multer({
+    storage: multer.diskStorage({
+      destination: req.app.locals.UPLOAD_DIR,
+      filename: (r, file, cb) => cb(null, `${crypto.randomBytes(12).toString('hex')}${ext(file)}`),
+    }),
+    limits: { fileSize: 8 * 1024 * 1024 },
+    fileFilter: (r, file, cb) => cb(null, file.fieldname === 'font' ? FONT_EXTS.includes(ext(file)) : !!IMAGE_TYPES[file.mimetype]),
+  }).fields([{ name: 'logo', maxCount: 1 }, { name: 'font', maxCount: 1 }])(req, res, next);
+}
+const uploaded = (req, field) => req.files?.[field]?.[0]?.filename || null;
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 function removeUpload(req, name) {
@@ -54,6 +69,7 @@ router.get('/', (req, res) => {
     contracts: count("SELECT COUNT(*) AS c FROM contracts WHERE status != 'cancelled'"),
     signed: count("SELECT COUNT(*) AS c FROM contracts WHERE status = 'signed'"),
     modelsNoImage: count('SELECT COUNT(*) AS c FROM models WHERE image IS NULL'),
+    companies: count('SELECT COUNT(*) AS c FROM companies'),
   };
   res.render('admin/index', { title: 'لوحة الأدمن', stats });
 });
@@ -116,7 +132,7 @@ router.post('/users/:id', (req, res) => {
 router.get('/units', (req, res) => {
   const units = listUnits();
   const buildings = [...new Set(units.map((u) => u.building))].sort();
-  res.render('admin/units', { title: 'الوحدات', units, buildings, floors: f.FLOOR_LABELS });
+  res.render('admin/units', { title: 'الوحدات', units, buildings, floors: f.FLOOR_LABELS, companies: listCompanies() });
 });
 
 router.post('/units/:id(\\d+)', withImage('image'), (req, res) => {
@@ -126,10 +142,11 @@ router.post('/units/:id(\\d+)', withImage('image'), (req, res) => {
   let image = unit.image;
   if (req.file) { removeUpload(req, unit.image); image = req.file.filename; }
   if (req.body.remove_image) { removeUpload(req, unit.image); image = null; }
+  const companyId = getCompany(req.body.company_id)?.id ?? unit.company_id;
   db.prepare(`UPDATE units SET area = ?, garden_area = ?, rooms = ?, bathrooms = ?, price = ?, garage_price = ?, status = ?, notes = ?, image = ?,
-    updated_at = datetime('now') WHERE id = ?`).run(
+    company_id = ?, updated_at = datetime('now') WHERE id = ?`).run(
     numOrNull(req.body.area) ?? unit.area, numOrNull(req.body.garden_area) ?? 0, numOrNull(req.body.rooms), numOrNull(req.body.bathrooms),
-    numOrNull(req.body.price), numOrNull(req.body.garage_price), status, String(req.body.notes || '').trim() || null, image, unit.id,
+    numOrNull(req.body.price), numOrNull(req.body.garage_price), status, String(req.body.notes || '').trim() || null, image, companyId, unit.id,
   );
   req.flash('success', `تم حفظ الوحدة ${unit.code}`);
   res.redirect(`/admin/units#u${unit.id}`);
@@ -144,6 +161,7 @@ router.post('/units/bulk-price', (req, res) => {
   const onlyUnpriced = !!req.body.only_unpriced;
   const where = ['1=1'];
   const args = [];
+  if (req.body.company_id) { where.push('company_id = ?'); args.push(Number(req.body.company_id)); }
   if (req.body.building) { where.push('building = ?'); args.push(req.body.building); }
   if (req.body.floor) { where.push('floor = ?'); args.push(req.body.floor); }
   if (req.body.model_no) { where.push('model_no = ?'); args.push(String(req.body.model_no).trim()); }
@@ -161,12 +179,29 @@ router.post('/units/bulk-price', (req, res) => {
   res.redirect('/admin/units');
 });
 
+// Move a group of units (by building / floor / model) to a company.
+router.post('/units/assign-company', (req, res) => {
+  const company = getCompany(req.body.target_company_id);
+  if (!company) { req.flash('error', 'اختر الشركة'); return res.redirect('/admin/units'); }
+  const where = ['1=1'];
+  const args = [];
+  if (req.body.building) { where.push('building = ?'); args.push(req.body.building); }
+  if (req.body.floor) { where.push('floor = ?'); args.push(req.body.floor); }
+  if (req.body.model_no) { where.push('model_no = ?'); args.push(String(req.body.model_no).trim()); }
+  const r = db.prepare(`UPDATE units SET company_id = ?, updated_at = datetime('now') WHERE ${where.join(' AND ')}`).run(company.id, ...args);
+  req.flash('success', `تم نقل ${r.changes} وحدة إلى ${company.name}`);
+  res.redirect('/admin/units');
+});
+
 router.post('/units/import', memoryUpload.single('csv'), (req, res) => {
   if (!req.file) { req.flash('error', 'برجاء اختيار ملف CSV'); return res.redirect('/admin/units'); }
   try {
     const units = unitsFromCsv(req.file.buffer.toString('utf8'));
-    const r = importUnits(units);
-    req.flash('success', `تم الاستيراد: ${r.added} وحدة جديدة، ${r.updated} وحدة محدثة`);
+    const companyId = getCompany(req.body.company_id)?.id ?? defaultCompanyId();
+    const r = importUnits(units, companyId);
+    let msg = `تم الاستيراد: ${r.added} وحدة جديدة، ${r.updated} وحدة محدثة`;
+    if (r.skipped.length) msg += ` — تم تخطي ${r.skipped.length} كود مسجل لشركة أخرى: ${r.skipped.slice(0, 10).join('، ')}`;
+    req.flash(r.skipped.length ? 'warning' : 'success', msg);
   } catch (e) {
     req.flash('error', `تعذر قراءة الملف: ${e.message}`);
   }
@@ -175,9 +210,9 @@ router.post('/units/import', memoryUpload.single('csv'), (req, res) => {
 
 router.get('/units/export.csv', (req, res) => {
   const esc = (v) => (v == null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-  const lines = ['MODEL NO.,FLOOR,CODE,AREA,GARDEN AREA,ROOMS,BATHROOMS,PRICE,GARAGE PRICE,STATUS,NOTES'];
+  const lines = ['MODEL NO.,FLOOR,CODE,AREA,GARDEN AREA,ROOMS,BATHROOMS,PRICE,GARAGE PRICE,STATUS,COMPANY,NOTES'];
   for (const u of listUnits()) {
-    lines.push([u.model_no, `${u.floor} FLOOR`, u.code, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.garage_price, u.status, u.notes].map(esc).join(','));
+    lines.push([u.model_no, `${u.floor} FLOOR`, u.code, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.garage_price, u.status, u.company_name, u.notes].map(esc).join(','));
   }
   res.set('Content-Type', 'text/csv; charset=utf-8');
   res.set('Content-Disposition', 'attachment; filename="units.csv"');
@@ -206,7 +241,6 @@ router.post('/models/:no', withImage('image'), (req, res) => {
 
 // ---------- Settings
 const SETTING_KEYS = [
-  'company_name', 'project_name', 'company_address', 'company_phone', 'owner_name', 'owner_phone',
   'default_discount_pct', 'max_discount_pct', 'default_down_payment_pct', 'min_down_payment_pct',
   'maintenance_pct', 'maintenance_skip_installments', 'default_years', 'default_frequency_months', 'max_years',
   'allowed_frequencies', 'default_garage_price', 'quote_validity_days', 'quote_terms',
@@ -217,41 +251,114 @@ router.get('/settings', (req, res) => {
   res.render('admin/settings', { title: 'الإعدادات والأسعار' });
 });
 
-router.post('/settings', withImage('logo'), (req, res) => {
+router.post('/settings', (req, res) => {
   for (const k of SETTING_KEYS) if (k in req.body) setSetting(k, String(req.body[k]).trim());
   for (const k of CHECKBOX_KEYS) setSetting(k, req.body[k] ? '1' : '0');
-  const settings = getSettings();
-  if (req.file) { removeUpload(req, settings.company_logo); setSetting('company_logo', req.file.filename); }
-  if (req.body.remove_logo) { removeUpload(req, settings.company_logo); setSetting('company_logo', ''); }
   req.flash('success', 'تم حفظ الإعدادات');
   res.redirect('/admin/settings');
 });
 
+// ---------- Companies (print identity)
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function companyFields(body) {
+  const s = (k) => String(body[k] || '').trim();
+  return {
+    name: s('name'), project_name: s('project_name'), address: s('address'), phone: s('phone'),
+    owner_name: s('owner_name'), owner_phone: s('owner_phone'),
+    primary_color: HEX_COLOR.test(s('primary_color')) ? s('primary_color') : '#1f2937',
+    secondary_color: HEX_COLOR.test(s('secondary_color')) ? s('secondary_color') : null,
+    font_family: f.COMPANY_FONTS.includes(s('font_family')) ? s('font_family') : 'Cairo',
+    quote_terms: s('quote_terms') || null,
+  };
+}
+
+router.get('/companies', (req, res) => {
+  res.render('admin/companies', { title: 'الشركات', companies: listCompanies() });
+});
+
+// Logo and font files are kept on disk when replaced: issued quotes and contracts still reference them.
+router.post('/companies', identityUpload, (req, res) => {
+  const c = companyFields(req.body);
+  if (!c.name) { req.flash('error', 'اسم الشركة مطلوب'); return res.redirect('/admin/companies'); }
+  db.prepare(`INSERT INTO companies (name, project_name, address, phone, owner_name, owner_phone, primary_color, secondary_color, font_family, quote_terms, logo, font_file)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(c.name, c.project_name, c.address, c.phone, c.owner_name, c.owner_phone, c.primary_color,
+    c.secondary_color, c.font_family, c.quote_terms, uploaded(req, 'logo'), uploaded(req, 'font'));
+  req.flash('success', `تمت إضافة ${c.name} — انقل وحداتها إليها من صفحة الوحدات أو استورد ملف وحداتها`);
+  res.redirect('/admin/companies');
+});
+
+router.post('/companies/:id(\\d+)', identityUpload, (req, res) => {
+  const company = getCompany(req.params.id);
+  if (!company) return res.redirect('/admin/companies');
+  const c = companyFields(req.body);
+  const logo = req.body.remove_logo ? null : uploaded(req, 'logo') || company.logo;
+  const font = req.body.remove_font ? null : uploaded(req, 'font') || company.font_file;
+  db.prepare(`UPDATE companies SET name = ?, project_name = ?, address = ?, phone = ?, owner_name = ?, owner_phone = ?, primary_color = ?, secondary_color = ?,
+    font_family = ?, quote_terms = ?, logo = ?, font_file = ? WHERE id = ?`).run(c.name || company.name, c.project_name, c.address, c.phone, c.owner_name,
+    c.owner_phone, c.primary_color, c.secondary_color, c.font_family, c.quote_terms, logo, font, company.id);
+  req.flash('success', `تم حفظ بيانات ${c.name || company.name} — تنطبق على العروض والعقود الجديدة`);
+  res.redirect(`/admin/companies#c${company.id}`);
+});
+
+router.post('/companies/:id(\\d+)/delete', (req, res) => {
+  const company = getCompany(req.params.id);
+  if (!company) return res.redirect('/admin/companies');
+  const units = db.prepare('SELECT COUNT(*) AS c FROM units WHERE company_id = ?').get(company.id).c;
+  if (units) req.flash('error', `لا يمكن حذف الشركة — مرتبط بها ${units} وحدة. انقل الوحدات لشركة أخرى أولاً`);
+  else {
+    db.prepare('DELETE FROM companies WHERE id = ?').run(company.id);
+    req.flash('success', `تم حذف ${company.name}`);
+  }
+  res.redirect('/admin/companies');
+});
+
 // ---------- Contract template
+// The general template is used by every company that has no wording of its own.
+function templateTarget(req) {
+  const company = req.body?.company_id || req.query.company ? getCompany(req.body?.company_id || req.query.company) : null;
+  return { company, back: company ? `/admin/template?company=${company.id}` : '/admin/template' };
+}
+
+function saveTemplate(company, html) {
+  if (company) db.prepare('UPDATE companies SET contract_template = ? WHERE id = ?').run(html, company.id);
+  else setSetting('contract_template', html ?? DEFAULT_CONTRACT_TEMPLATE);
+}
+
 router.get('/template', (req, res) => {
-  res.render('admin/template', { title: 'صيغة العقد', placeholders: PLACEHOLDERS });
+  const { company } = templateTarget(req);
+  const settings = getSettings();
+  res.render('admin/template', {
+    title: 'صيغة العقد', placeholders: PLACEHOLDERS, companies: listCompanies(), company,
+    usesGeneral: company && !company.contract_template,
+    template: (company && company.contract_template) || settings.contract_template,
+  });
 });
 
 router.post('/template', (req, res) => {
-  if (req.body.reset) setSetting('contract_template', DEFAULT_CONTRACT_TEMPLATE);
-  else setSetting('contract_template', sanitizeTemplate(req.body.template));
-  req.flash('success', 'تم حفظ صيغة العقد — العقود الجديدة ستُصاغ بها');
-  res.redirect('/admin/template');
+  const { company, back } = templateTarget(req);
+  if (req.body.reset) saveTemplate(company, company ? null : DEFAULT_CONTRACT_TEMPLATE);
+  else saveTemplate(company, sanitizeTemplate(req.body.template));
+  req.flash('success', req.body.reset && company
+    ? `${company.name} ستستخدم الصيغة العامة`
+    : 'تم حفظ صيغة العقد — العقود الجديدة ستُصاغ بها');
+  res.redirect(back);
 });
 
 // Import the company's Word contract. Placeholders typed in the document as {{client_name}} are kept.
 router.post('/template/docx', memoryUpload.single('docx'), async (req, res) => {
-  if (!req.file) { req.flash('error', 'برجاء اختيار ملف Word (.docx)'); return res.redirect('/admin/template'); }
+  const { company, back } = templateTarget(req);
+  if (!req.file) { req.flash('error', 'برجاء اختيار ملف Word (.docx)'); return res.redirect(back); }
   try {
     const result = await mammoth.convertToHtml({ buffer: req.file.buffer }, {
       styleMap: ["p[style-name='Title'] => h1:fresh", "p[style-name='Heading 1'] => h2:fresh", "p[style-name='Heading 2'] => h3:fresh"],
     });
-    setSetting('contract_template', sanitizeTemplate(result.value));
+    saveTemplate(company, sanitizeTemplate(result.value));
     req.flash('success', 'تم استيراد العقد من ملف Word — راجع الصيغة وأضف أماكن البيانات والتوقيعات');
   } catch (e) {
     req.flash('error', 'تعذر قراءة ملف Word — تأكد أنه بصيغة .docx');
   }
-  res.redirect('/admin/template');
+  res.redirect(back);
 });
 
 module.exports = router;

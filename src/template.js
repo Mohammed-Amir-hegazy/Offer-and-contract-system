@@ -6,7 +6,7 @@ const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربع�
 
 // Placeholders available to contract templates, shown to the admin in the template editor.
 const PLACEHOLDERS = [
-  ['company_name', 'اسم الشركة'], ['company_address', 'عنوان الشركة'], ['owner_name', 'اسم ممثل الشركة'],
+  ['company_name', 'اسم الشركة'], ['company_address', 'عنوان الشركة'], ['company_phone', 'تليفون الشركة'], ['owner_name', 'اسم ممثل الشركة'],
   ['project_name', 'اسم المشروع'], ['contract_number', 'رقم العقد'], ['contract_date', 'تاريخ العقد'],
   ['contract_day', 'يوم تحرير العقد'], ['quote_number', 'رقم عرض السعر'],
   ['client_name', 'اسم العميل'], ['client_national_id', 'الرقم القومي'], ['client_nationality', 'الجنسية'],
@@ -42,15 +42,17 @@ function installmentsTable(plan) {
 <tfoot><tr><td colspan="2">الإجمالي</td><td>${f.money(totals.unit)}</td><td>${f.money(totals.garage)}</td><td>${f.money(totals.maintenance)}</td><td>${f.money(totals.total)}</td></tr></tfoot></table>`;
 }
 
-function contractValues({ settings, contract, client, unit, plan, quoteNumber }) {
+function contractValues({ company, contract, client, unit, plan, quoteNumber }) {
+  company = company || {};
   const d = new Date(`${contract.contract_date}T12:00:00`);
   const first = plan.installments[0];
   const last = plan.installments[plan.installments.length - 1];
   return {
-    company_name: settings.company_name,
-    company_address: settings.company_address,
-    owner_name: settings.owner_name,
-    project_name: settings.project_name,
+    company_name: company.name,
+    company_address: company.address,
+    company_phone: company.phone,
+    owner_name: company.owner_name,
+    project_name: company.project_name,
     contract_number: contract.number,
     contract_date: f.date(contract.contract_date),
     contract_day: DAYS[d.getDay()],

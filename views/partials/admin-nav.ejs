@@ -1,5 +1,5 @@
 <div class="row no-print" style="margin-bottom:16px">
-  <% const tabs = [['/admin', 'نظرة عامة'], ['/admin/users', 'المستخدمون والصلاحيات'], ['/admin/units', 'الوحدات والأسعار'], ['/admin/models', 'النماذج والصور'], ['/admin/settings', 'الإعدادات ونظام السداد'], ['/admin/template', 'صيغة العقد']]; %>
+  <% const tabs = [['/admin', 'نظرة عامة'], ['/admin/companies', 'الشركات وهوياتها'], ['/admin/users', 'المستخدمون والصلاحيات'], ['/admin/units', 'الوحدات والأسعار'], ['/admin/models', 'النماذج والصور'], ['/admin/settings', 'الإعدادات ونظام السداد'], ['/admin/template', 'صيغة العقد']]; %>
   <% tabs.forEach(([href, label]) => { const on = href === '/admin' ? path === '/admin' || path === '/admin/' : path.startsWith(href); %>
   <a class="btn btn-sm <%= on ? '' : 'btn-light' %>" href="<%= href %>"><%= label %></a>
   <% }) %>

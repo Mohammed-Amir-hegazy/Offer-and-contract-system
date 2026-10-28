@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>عقد <%= contract.number %> — <%= contract.client.name %></title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap">
+<title>عقد <%= contract.number %> — <%= contract.client.name %> — <%= company.name %></title>
+<link rel="icon" href="<%= company.logo ? '/uploads/' + company.logo : '/static/img/favicon.svg' %>">
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body style="background:#fff">
 <div class="actions-bar" style="margin-top:16px"><button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>
+<%- include('partials/company-style') %>
 <div class="doc" style="border:none;box-shadow:none">
-  <% if (settings.company_logo) { %><div style="text-align:center;margin-bottom:10px"><img src="/uploads/<%= settings.company_logo %>" alt="" style="max-height:70px"></div><% } %>
+  <%- include('partials/contract-letterhead') %>
   <div class="contract-body"><%- body %></div>
   <% if (contract.status === 'signed') { %>
   <div class="doc-foot">

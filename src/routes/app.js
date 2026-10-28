@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const express = require('express');
-const { db, getSettings, getUnitByCode, getUnitById, nextNumber } = require('../db');
+const { db, getSettings, getUnitByCode, getUnitById, nextNumber, getCompany, companySnapshot } = require('../db');
 const { requirePermission } = require('../auth');
 const { buildPlan, limitsFor, defaultsFor } = require('../plans');
 const { contractValues, renderTemplate, applySignatures, hashBody } = require('../template');
@@ -40,7 +40,17 @@ function unitPublic(unit) {
     statusLabel: f.STATUS_LABELS[unit.status],
     image: unit.image ? `/uploads/${unit.image}` : null,
     notes: unit.notes,
+    company_id: unit.company_id,
+    company_name: unit.company_name,
+    project_name: unit.project_name,
   };
+}
+
+// Identity printed on a quote/contract: the snapshot taken when it was issued
+// (falls back to the unit's current company for documents without one).
+function docCompany(row, unitCompanyId) {
+  if (row.company) return typeof row.company === 'string' ? JSON.parse(row.company) : row.company;
+  return companySnapshot(getCompany(unitCompanyId)) || {};
 }
 
 function canSee(user, row) {
@@ -120,10 +130,11 @@ router.post('/quotes', requirePermission('can_quote'), (req, res) => {
   }
   const number = nextNumber('quotes', 'Q');
   const validDays = Number(settings.quote_validity_days) || 0;
-  const info = db.prepare(`INSERT INTO quotes (number, client_name, client_phone, unit_id, unit_snapshot, inputs, plan, offer_date, valid_until, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+  const info = db.prepare(`INSERT INTO quotes (number, client_name, client_phone, unit_id, unit_snapshot, inputs, plan, offer_date, valid_until, created_by, company)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     number, clientName, String(req.body.clientPhone || '').trim(), unit.id, JSON.stringify(unitPublic(unit)),
     JSON.stringify(inputs), JSON.stringify(plan), offerDate, validDays ? addDays(offerDate, validDays) : null, req.user.id,
+    JSON.stringify(companySnapshot(getCompany(unit.company_id))),
   );
   res.redirect(`/quotes/${info.lastInsertRowid}`);
 });
@@ -132,7 +143,8 @@ router.get('/quotes/:id', requirePermission('can_quote'), (req, res, next) => {
   const quote = parse(db.prepare(`SELECT q.*, us.full_name AS creator FROM quotes q JOIN users us ON us.id = q.created_by WHERE q.id = ?`).get(req.params.id), 'plan', 'inputs', 'unit_snapshot');
   if (!quote || !canSee(req.user, quote)) return next();
   const contract = db.prepare('SELECT id, number, status FROM contracts WHERE quote_id = ? AND status != ? ORDER BY id DESC').get(quote.id, 'cancelled');
-  res.render('quote', { title: `عرض سعر ${quote.number}`, quote, unit: quote.unit_snapshot, plan: quote.plan, contract });
+  const company = docCompany(quote, quote.unit_snapshot.company_id);
+  res.render('quote', { title: `عرض سعر ${quote.number}`, quote, unit: quote.unit_snapshot, plan: quote.plan, contract, company });
 });
 
 // ---------- Contracts
@@ -164,9 +176,10 @@ function readClient(body) {
   };
 }
 
-function renderContractBody(settings, contract, client, unit, plan, quoteNumber) {
-  const values = contractValues({ settings, contract, client, unit, plan, quoteNumber });
-  return renderTemplate(settings.contract_template || '', values, plan);
+// Uses the company's own contract wording, or the general template if it has none.
+function renderContractBody(settings, company, contract, client, unit, plan, quoteNumber) {
+  const values = contractValues({ company, contract, client, unit, plan, quoteNumber });
+  return renderTemplate(company?.contract_template || settings.contract_template || '', values, plan);
 }
 
 router.post('/contracts', requirePermission('can_contract'), (req, res) => {
@@ -193,10 +206,12 @@ router.post('/contracts', requirePermission('can_contract'), (req, res) => {
   }
   const number = nextNumber('contracts', 'C');
   const snapshot = unitPublic(unit);
-  const body = renderContractBody(settings, { number, contract_date: contractDate }, client, snapshot, plan, quoteNumber);
-  const info = db.prepare(`INSERT INTO contracts (number, quote_id, unit_id, client, unit_snapshot, inputs, plan, contract_date, body_html, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+  const company = getCompany(unit.company_id);
+  const body = renderContractBody(settings, company, { number, contract_date: contractDate }, client, snapshot, plan, quoteNumber);
+  const info = db.prepare(`INSERT INTO contracts (number, quote_id, unit_id, client, unit_snapshot, inputs, plan, contract_date, body_html, created_by, company)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     number, quoteId, unit.id, JSON.stringify(client), JSON.stringify(snapshot), JSON.stringify(inputs), JSON.stringify(plan), contractDate, body, req.user.id,
+    JSON.stringify(companySnapshot(company)),
   );
   if (settings.auto_status_on_contract === '1' && unit.status === 'available') {
     db.prepare("UPDATE units SET status = 'reserved', updated_at = datetime('now') WHERE id = ?").run(unit.id);
@@ -206,7 +221,9 @@ router.post('/contracts', requirePermission('can_contract'), (req, res) => {
 
 function loadContract(req) {
   const c = parse(db.prepare('SELECT c.*, us.full_name AS creator FROM contracts c JOIN users us ON us.id = c.created_by WHERE c.id = ?').get(req.params.id), 'client', 'plan', 'unit_snapshot');
-  return c && canSee(req.user, c) ? c : null;
+  if (!c || !canSee(req.user, c)) return null;
+  c.company = docCompany(c, c.unit_snapshot.company_id);
+  return c;
 }
 
 function baseUrl(req) {
@@ -220,13 +237,13 @@ router.get('/contracts/:id', requirePermission('can_contract'), (req, res, next)
     client: `${baseUrl(req)}/sign/${contract.client_token}`,
     company: `${baseUrl(req)}/sign/${contract.company_token}`,
   } : null;
-  res.render('contract', { title: `عقد ${contract.number}`, contract, body: applySignatures(contract.body_html, contract), links });
+  res.render('contract', { title: `عقد ${contract.number}`, contract, company: contract.company, body: applySignatures(contract.body_html, contract), links });
 });
 
 router.get('/contracts/:id/print', requirePermission('can_contract'), (req, res, next) => {
   const contract = loadContract(req);
   if (!contract) return next();
-  res.render('contract-print', { title: `عقد ${contract.number}`, contract, body: applySignatures(contract.body_html, contract) });
+  res.render('contract-print', { title: `عقد ${contract.number}`, contract, company: contract.company, body: applySignatures(contract.body_html, contract) });
 });
 
 router.post('/contracts/:id/links', requirePermission('can_contract'), (req, res, next) => {
@@ -251,8 +268,11 @@ router.post('/contracts/:id/regenerate', requirePermission('can_contract'), (req
   }
   const settings = getSettings();
   const quote = contract.quote_id ? db.prepare('SELECT number FROM quotes WHERE id = ?').get(contract.quote_id) : null;
-  const body = renderContractBody(settings, contract, contract.client, contract.unit_snapshot, contract.plan, quote?.number);
-  db.prepare('UPDATE contracts SET body_html = ?, body_hash = CASE WHEN client_token IS NULL THEN NULL ELSE ? END WHERE id = ?').run(body, hashBody(body), contract.id);
+  // Re-drafting also refreshes the company identity from the unit's current company.
+  const company = getCompany(getUnitById(contract.unit_id)?.company_id);
+  const body = renderContractBody(settings, company, contract, contract.client, contract.unit_snapshot, contract.plan, quote?.number);
+  db.prepare('UPDATE contracts SET body_html = ?, company = ?, body_hash = CASE WHEN client_token IS NULL THEN NULL ELSE ? END WHERE id = ?')
+    .run(body, JSON.stringify(companySnapshot(company)), hashBody(body), contract.id);
   req.flash('success', 'تمت إعادة صياغة العقد من القالب الحالي');
   res.redirect(`/contracts/${contract.id}`);
 });

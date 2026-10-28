@@ -1,18 +1,19 @@
 <%- include('partials/head') %>
+<%- include('partials/company-style') %>
 <div class="doc" style="margin-bottom:18px">
   <div class="row" style="margin-bottom:12px">
-    <% if (settings.company_logo) { %><img src="/uploads/<%= settings.company_logo %>" alt="" style="max-height:50px"><% } %>
-    <div><strong><%= settings.company_name %></strong><br><span class="muted">توقيع إلكتروني على العقد <span class="ltr"><%= contract.number %></span></span></div>
+    <% if (company.logo) { %><img src="/uploads/<%= company.logo %>" alt="" style="max-height:50px"><% } %>
+    <div><strong><%= company.name %></strong><br><span class="muted">توقيع إلكتروني على العقد <span class="ltr"><%= contract.number %></span></span></div>
     <span class="spacer"></span>
     <span class="badge badge-<%= contract.status %>"><%= f.CONTRACT_STATUS_LABELS[contract.status] %></span>
   </div>
   <div class="alert alert-warning no-print" style="margin:0">
-    التوقيع بصفتك: <strong><%= party === 'client' ? `الطرف الثاني (المشتري) — ${contract.client.name}` : `الطرف الأول (البائع) — ${settings.company_name}` %></strong>.
+    التوقيع بصفتك: <strong><%= party === 'client' ? `الطرف الثاني (المشتري) — ${contract.client.name}` : `الطرف الأول (البائع) — ${company.name}` %></strong>.
     برجاء قراءة العقد بالكامل ثم التوقيع في أسفل الصفحة. سيظهر توقيعك تلقائياً في جميع أماكن التوقيع المخصصة لك.
   </div>
 </div>
 
-<div class="doc"><div class="contract-body"><%- body %></div></div>
+<div class="doc"><%- include('partials/contract-letterhead') %><div class="contract-body"><%- body %></div></div>
 
 <div class="card no-print" style="max-width:900px;margin:18px auto" id="sign">
   <% if (alreadySigned) { %>
@@ -28,7 +29,7 @@
       <div class="grid grid-2">
         <div class="field">
           <label>الاسم بالكامل</label>
-          <input type="text" name="signerName" required value="<%= party === 'client' ? contract.client.name : (settings.owner_name || '') %>">
+          <input type="text" name="signerName" required value="<%= party === 'client' ? contract.client.name : (company.owner_name || '') %>">
         </div>
         <% if (party === 'client' && contract.client.national_id) { %>
         <div class="field">
@@ -47,4 +48,5 @@
     <script src="/static/js/signature-pad.js"></script>
   <% } %>
 </div>
+<div class="powered no-print">منصة التوقيع الإلكتروني <img src="/static/img/ebtikar-mark.svg" alt=""> Ebtikar</div>
 <%- include('partials/foot') %>

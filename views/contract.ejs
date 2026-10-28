@@ -20,6 +20,7 @@
       <form method="post" action="/contracts/<%= c.id %>/cancel" onsubmit="return confirm('هل تريد إلغاء هذا العقد؟ سيتم إبطال روابط التوقيع.')"><button class="btn btn-danger" type="submit">إلغاء العقد</button></form>
       <% } %>
     </div>
+    <p style="margin:10px 0 0">الشركة البائعة: <span class="company-chip"><i style="background:<%= company.primary_color %>"></i><%= company.name %></span></p>
     <% if (c.quote_id) { %><p class="muted" style="margin-bottom:0">مبني على <a href="/quotes/<%= c.quote_id %>">عرض السعر</a></p><% } %>
   </div>
 
@@ -42,11 +43,11 @@
     <% } %>
     <% if (!c.company_signed_at) { %>
     <div class="field">
-      <label>رابط توقيع الشركة (<%= settings.owner_name || 'صاحب الشركة' %>)</label>
+      <label>رابط توقيع الشركة (<%= company.owner_name || company.name %>)</label>
       <div class="link-box">
         <input type="text" readonly value="<%= links.company %>" onclick="this.select()">
         <button class="btn btn-sm btn-light" type="button" onclick="copyLink(this)">نسخ</button>
-        <% if (settings.owner_phone) { %><a class="btn btn-sm btn-light" target="_blank" rel="noopener" href="<%= wa(settings.owner_phone, `عقد جديد ${c.number} للعميل ${c.client.name} — الوحدة ${c.unit_snapshot.code} بانتظار توقيعكم: ${links.company}`) %>">واتساب</a><% } %>
+        <% if (company.owner_phone) { %><a class="btn btn-sm btn-light" target="_blank" rel="noopener" href="<%= wa(company.owner_phone, `عقد جديد ${c.number} للعميل ${c.client.name} — الوحدة ${c.unit_snapshot.code} بانتظار توقيعكم: ${links.company}`) %>">واتساب</a><% } %>
       </div>
     </div>
     <% } %>
@@ -55,7 +56,9 @@
   </div>
 </div>
 
+<%- include('partials/company-style') %>
 <div class="doc">
+  <%- include('partials/contract-letterhead') %>
   <div class="contract-body"><%- body %></div>
 </div>
 <script>

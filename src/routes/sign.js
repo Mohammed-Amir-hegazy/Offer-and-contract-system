@@ -1,5 +1,5 @@
 const express = require('express');
-const { db, getSettings } = require('../db');
+const { db, getSettings, getCompany, companySnapshot } = require('../db');
 const { applySignatures, hashBody } = require('../template');
 const { nowLocal } = require('../format');
 
@@ -14,7 +14,9 @@ function findByToken(token) {
   const c = db.prepare('SELECT * FROM contracts WHERE client_token = ? OR company_token = ?').get(token, token);
   if (!c) return null;
   const party = c.client_token === token ? 'client' : 'company';
-  return { contract: { ...c, client: JSON.parse(c.client) }, party };
+  const unit = JSON.parse(c.unit_snapshot);
+  const company = c.company ? JSON.parse(c.company) : companySnapshot(getCompany(unit.company_id)) || {};
+  return { contract: { ...c, client: JSON.parse(c.client), company }, party };
 }
 
 function render(res, found, extra = {}) {
@@ -22,6 +24,7 @@ function render(res, found, extra = {}) {
   res.render('sign', {
     title: `توقيع العقد ${contract.number}`,
     contract,
+    company: contract.company,
     party,
     alreadySigned: !!contract[`${party}_signed_at`],
     body: applySignatures(contract.body_html, contract),

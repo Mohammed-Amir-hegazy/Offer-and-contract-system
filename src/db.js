@@ -27,6 +27,21 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS companies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  project_name TEXT,
+  address TEXT,
+  phone TEXT,
+  logo TEXT,
+  owner_name TEXT,
+  owner_phone TEXT,
+  primary_color TEXT NOT NULL DEFAULT '#1f2937',
+  contract_template TEXT,
+  quote_terms TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS models (
   model_no TEXT PRIMARY KEY,
   rooms INTEGER,
@@ -102,14 +117,19 @@ CREATE TABLE IF NOT EXISTS contracts (
 );
 `);
 
+// Columns added after the first release.
+function addColumn(table, column, type) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
+addColumn('units', 'company_id', 'INTEGER REFERENCES companies(id)');
+addColumn('quotes', 'company', 'TEXT');
+addColumn('contracts', 'company', 'TEXT');
+addColumn('companies', 'secondary_color', 'TEXT');
+addColumn('companies', 'font_family', 'TEXT');
+addColumn('companies', 'font_file', 'TEXT');
+
 const DEFAULT_SETTINGS = {
-  company_name: 'شركة التطوير العقاري',
-  project_name: 'نجم كمبوند 5',
-  company_address: '',
-  company_phone: '',
-  company_logo: '',
-  owner_name: '',
-  owner_phone: '',
   currency: 'ج.م',
   default_discount_pct: '0',
   max_discount_pct: '10',
@@ -229,25 +249,28 @@ function unitsFromCsv(text) {
 
 // Upsert units: inserts new codes; for existing codes updates physical data and
 // only overwrites optional columns (rooms/price/status) when the CSV provides them.
-function importUnits(units) {
-  const existing = db.prepare('SELECT id FROM units WHERE code = ?');
-  const insert = db.prepare(`INSERT INTO units (code, building, entrance, floor, model_no, area, garden_area, rooms, bathrooms, price, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+// Unit codes are unique across the whole system; a code already owned by another company is skipped.
+function importUnits(units, companyId) {
+  const existing = db.prepare('SELECT id, company_id FROM units WHERE code = ?');
+  const insert = db.prepare(`INSERT INTO units (code, building, entrance, floor, model_no, area, garden_area, rooms, bathrooms, price, status, company_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const update = db.prepare(`UPDATE units SET building = ?, entrance = ?, floor = ?, model_no = ?, area = ?, garden_area = ?,
     rooms = COALESCE(?, rooms), bathrooms = COALESCE(?, bathrooms), price = COALESCE(?, price), status = COALESCE(?, status),
     updated_at = datetime('now') WHERE id = ?`);
   const insertModel = db.prepare('INSERT OR IGNORE INTO models (model_no) VALUES (?)');
   let added = 0, updated = 0;
+  const skipped = [];
   db.exec('BEGIN');
   try {
     for (const u of units) {
-      if (u.model_no) insertModel.run(u.model_no);
       const row = existing.get(u.code);
+      if (row && companyId && row.company_id && row.company_id !== companyId) { skipped.push(u.code); continue; }
+      if (u.model_no) insertModel.run(u.model_no);
       if (row) {
         update.run(u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status, row.id);
         updated++;
       } else {
-        insert.run(u.code, u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status || 'available');
+        insert.run(u.code, u.building, u.entrance, u.floor, u.model_no, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.status || 'available', companyId || null);
         added++;
       }
     }
@@ -256,7 +279,42 @@ function importUnits(units) {
     db.exec('ROLLBACK');
     throw e;
   }
-  return { added, updated };
+  return { added, updated, skipped };
+}
+
+// --- Companies
+// Each company has its own print identity (logo, colour, details, signatory, contract wording).
+const COMPANY_FIELDS = ['name', 'project_name', 'address', 'phone', 'logo', 'owner_name', 'owner_phone', 'primary_color', 'secondary_color',
+  'font_family', 'font_file', 'contract_template', 'quote_terms'];
+
+function listCompanies() {
+  return db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM units u WHERE u.company_id = c.id) AS units
+    FROM companies c ORDER BY c.id`).all();
+}
+
+function getCompany(id) {
+  return db.prepare('SELECT * FROM companies WHERE id = ?').get(id) || null;
+}
+
+function defaultCompanyId() {
+  return db.prepare('SELECT id FROM companies ORDER BY id LIMIT 1').get()?.id ?? null;
+}
+
+// The identity frozen on a quote/contract when it is issued.
+function companySnapshot(company) {
+  if (!company) return null;
+  const { contract_template: _t, created_at: _c, units: _u, ...rest } = company;
+  return rest;
+}
+
+if (db.prepare('SELECT COUNT(*) AS c FROM companies').get().c === 0) {
+  // Carry over the single-company settings of earlier versions, if any.
+  const old = getSettings();
+  db.prepare(`INSERT INTO companies (name, project_name, address, phone, logo, owner_name, owner_phone, quote_terms)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    old.company_name || 'شركة التطوير العقاري', old.project_name || 'نجم كمبوند 5', old.company_address || '',
+    old.company_phone || '', old.company_logo || null, old.owner_name || '', old.owner_phone || '', null,
+  );
 }
 
 // --- Seed
@@ -264,6 +322,8 @@ if (db.prepare('SELECT COUNT(*) AS c FROM units').get().c === 0) {
   const csvPath = path.join(__dirname, '..', 'data', 'units.csv');
   if (fs.existsSync(csvPath)) importUnits(unitsFromCsv(fs.readFileSync(csvPath, 'utf8')));
 }
+
+db.prepare('UPDATE units SET company_id = ? WHERE company_id IS NULL').run(defaultCompanyId());
 
 if (db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get().c === 0) {
   const username = process.env.ADMIN_USERNAME || 'admin';
@@ -274,8 +334,9 @@ if (db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get().c =
 }
 
 // Unit with model data merged in (unit values override model values).
-const UNIT_SELECT = `SELECT u.*, m.rooms AS model_rooms, m.bathrooms AS model_bathrooms, m.image AS model_image, m.description AS model_description
-  FROM units u LEFT JOIN models m ON m.model_no = u.model_no`;
+const UNIT_SELECT = `SELECT u.*, m.rooms AS model_rooms, m.bathrooms AS model_bathrooms, m.image AS model_image, m.description AS model_description,
+  c.name AS company_name, c.project_name AS project_name
+  FROM units u LEFT JOIN models m ON m.model_no = u.model_no LEFT JOIN companies c ON c.id = u.company_id`;
 
 function hydrateUnit(u) {
   if (!u) return null;
@@ -313,4 +374,5 @@ function nextNumber(table, prefix) {
 module.exports = {
   db, DATA_DIR, getSettings, setSetting, unitsFromCsv, importUnits,
   getUnitByCode, getUnitById, listUnits, nextNumber,
+  COMPANY_FIELDS, listCompanies, getCompany, defaultCompanyId, companySnapshot,
 };

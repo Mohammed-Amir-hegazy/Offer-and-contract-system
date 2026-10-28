@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ebtikar">
+  <rect width="64" height="64" rx="14" fill="#06044B"/>
+  <path d="M40 10 A22 22 0 1 0 40 54" fill="none" stroke="#5146E1" stroke-width="9"/>
+  <path d="M22 32 L42 20 L36 32 L42 44 Z" fill="#62E98A"/>
+</svg>

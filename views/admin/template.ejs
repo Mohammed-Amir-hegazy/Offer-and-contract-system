@@ -1,11 +1,20 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1>صيغة العقد</h1></div>
 <%- include('../partials/admin-nav') %>
+<div class="card row">
+  <strong>الصيغة الخاصة بـ:</strong>
+  <select onchange="location.href = '/admin/template' + (this.value ? '?company=' + this.value : '')" style="max-width:320px">
+    <option value="">الصيغة العامة (لكل الشركات بدون صيغة خاصة)</option>
+    <% companies.forEach(c => { %><option value="<%= c.id %>" <%= company && company.id === c.id ? 'selected' : '' %>><%= c.name %><%= c.contract_template ? ' — صيغة خاصة' : '' %></option><% }) %>
+  </select>
+  <% if (usesGeneral) { %><span class="muted">هذه الشركة تستخدم الصيغة العامة حالياً — أي حفظ هنا ينشئ لها صيغة خاصة.</span><% } %>
+</div>
 
 <div class="grid grid-2">
   <div class="card">
     <h2>استيراد العقد من ملف Word</h2>
     <form method="post" action="/admin/template/docx" enctype="multipart/form-data">
+      <% if (company) { %><input type="hidden" name="company_id" value="<%= company.id %>"><% } %>
       <div class="field"><input type="file" name="docx" accept=".docx" required></div>
       <p class="hint">اكتب داخل ملف الـ Word الأماكن المتغيرة بين قوسين مزدوجين، مثلاً <span class="ltr">{{client_name}}</span> مكان اسم العميل و <span class="ltr">{{client_signature}}</span> مكان توقيع العميل. أو استورد الملف كما هو ثم أضف الأماكن من المحرر.</p>
       <button class="btn" type="submit" onclick="return confirm('سيتم استبدال الصيغة الحالية. متابعة؟')">استيراد</button>
@@ -23,6 +32,7 @@
 </div>
 
 <form method="post" action="/admin/template" id="tpl-form">
+  <% if (company) { %><input type="hidden" name="company_id" value="<%= company.id %>"><% } %>
   <div class="grid" style="grid-template-columns: minmax(0, 1fr) 280px; align-items:start">
     <div>
       <div class="editor-toolbar">
@@ -37,12 +47,16 @@
         <button type="button" data-cmd="insertOrderedList">1. قائمة</button>
         <button type="button" id="toggle-html">HTML</button>
       </div>
-      <div class="editor contract-body" id="editor" contenteditable="true"><%- settings.contract_template %></div>
+      <div class="editor contract-body" id="editor" contenteditable="true"><%- template %></div>
       <textarea id="html" style="display:none;min-height:500px;direction:ltr;font-family:monospace;font-size:13px;border-radius:0 0 8px 8px"></textarea>
       <input type="hidden" name="template" id="template">
       <div class="row" style="margin-top:12px">
         <button class="btn btn-lg" type="submit">حفظ الصيغة</button>
-        <button class="btn btn-light" type="submit" name="reset" value="1" onclick="return confirm('استرجاع الصيغة المبدئية؟')">استرجاع الصيغة المبدئية</button>
+        <% if (company) { %>
+          <% if (!usesGeneral) { %><button class="btn btn-light" type="submit" name="reset" value="1" onclick="return confirm('حذف الصيغة الخاصة واستخدام الصيغة العامة؟')">استخدام الصيغة العامة</button><% } %>
+        <% } else { %>
+          <button class="btn btn-light" type="submit" name="reset" value="1" onclick="return confirm('استرجاع الصيغة المبدئية؟')">استرجاع الصيغة المبدئية</button>
+        <% } %>
       </div>
     </div>
     <div class="card" style="position:sticky;top:76px;max-height:80vh;overflow:auto">

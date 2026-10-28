@@ -9,11 +9,12 @@
     <% } %>
   <% } %>
   <% if (quote.client_phone) { %>
-  <a class="btn btn-light" target="_blank" rel="noopener" href="https://wa.me/<%= quote.client_phone.replace(/\D/g, '').replace(/^0/, '20') %>?text=<%= encodeURIComponent(`عرض سعر الوحدة ${unit.code} — ${settings.project_name}`) %>">واتساب العميل</a>
+  <a class="btn btn-light" target="_blank" rel="noopener" href="https://wa.me/<%= quote.client_phone.replace(/\D/g, '').replace(/^0/, '20') %>?text=<%= encodeURIComponent(`عرض سعر الوحدة ${unit.code} — ${company.project_name || company.name || ''}`) %>">واتساب العميل</a>
   <% } %>
   <a class="btn btn-light" href="/quotes/new">عرض جديد</a>
 </div>
 
+<%- include('partials/company-style') %>
 <div class="doc">
   <%- include('partials/doc-head', { docTitle: 'عرض سعر', docNumber: quote.number, docDate: f.date(quote.offer_date) }) %>
 
@@ -46,6 +47,7 @@
   <%- include('partials/installments', { plan }) %>
   <% if (plan.count > plan.maintenanceSkip) { %><p class="muted"><small>وديعة الصيانة لا تُحصّل في أول <%= plan.maintenanceSkip %> أقساط، وتُوزع على باقي الأقساط.</small></p><% } %>
 
-  <% if (settings.quote_terms) { %><div class="doc-foot"><%= settings.quote_terms %></div><% } %>
+  <% const terms = company.quote_terms || settings.quote_terms; %>
+  <% if (terms) { %><div class="doc-foot"><%= terms %></div><% } %>
 </div>
 <%- include('partials/foot') %>
