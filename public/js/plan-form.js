@@ -49,7 +49,7 @@
           </div>
           ${unit.notes ? `<p class="muted" style="margin-bottom:0">${esc(unit.notes)}</p>` : ''}
         </div>
-        <div class="unit-image">${unit.image ? `<a href="${esc(unit.image)}" target="_blank"><img src="${esc(unit.image)}" alt="مسقط الوحدة"></a>` : '<span class="muted">لا توجد صورة للنموذج</span>'}</div>
+        <div class="unit-image${unit.image ? '' : ' empty'}">${unit.image ? `<a href="${esc(unit.image)}" target="_blank"><img src="${esc(unit.image)}" alt="مسقط الوحدة"></a>` : '<span class="muted">لا توجد صورة للنموذج</span>'}</div>
       </div>`;
   }
 

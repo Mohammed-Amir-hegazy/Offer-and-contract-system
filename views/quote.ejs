@@ -33,7 +33,7 @@
       <tr><td>المساحة</td><td><%= f.area(unit.area) %> م²</td><td>الحديقة</td><td><%= unit.garden_area ? f.area(unit.garden_area) + ' م²' : '—' %></td></tr>
       <tr><td>عدد الغرف</td><td><%= unit.rooms ?? '—' %></td><td>الحمامات</td><td><%= unit.bathrooms ?? '—' %></td></tr>
     </table>
-    <div class="unit-image"><% if (unit.image) { %><img src="<%= unit.image %>" alt="مسقط الوحدة"><% } else { %><span class="muted">—</span><% } %></div>
+    <div class="unit-image<%= unit.image ? '' : ' empty' %>"><% if (unit.image) { %><img src="<%= unit.image %>" alt="مسقط الوحدة"><% } else { %><span class="muted">—</span><% } %></div>
   </div>
 
   <h3>السعر</h3>

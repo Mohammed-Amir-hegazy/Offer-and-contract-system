@@ -3,7 +3,7 @@
 <div class="card">
   <div class="field no-print" style="max-width:320px"><input type="text" placeholder="بحث بالاسم أو الكود أو الرقم" oninput="filterRows(this.value)"></div>
   <div class="table-wrap">
-  <table class="table" id="list">
+  <table class="table responsive" id="list">
     <thead><tr><th>الرقم</th><th>العميل</th><th>الوحدة</th><th>إجمالي العقد</th><th>الحالة</th><th>توقيع العميل</th><th>توقيع الشركة</th><th>التاريخ</th><th>بواسطة</th></tr></thead>
     <tbody>
       <% contracts.forEach(c => { %>

@@ -7,6 +7,7 @@
 <title><%= title %> — <%= brandCompany ? brandCompany.name : 'ابتكار' %></title>
 <link rel="icon" href="<%= brandCompany && brandCompany.logo ? f.upload(brandCompany.logo) : '/img/favicon.svg' %>">
 <link rel="stylesheet" href="/css/style.css">
+<script src="/js/responsive-tables.js" defer></script>
 </head>
 <body>
 <% if (user) { %>

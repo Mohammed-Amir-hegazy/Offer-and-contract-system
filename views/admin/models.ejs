@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1>النماذج وصورها</h1></div>
 <%- include('../partials/admin-nav') %>
-<div class="alert alert-warning">ارفع صورة المسقط لكل نموذج، وحدد عدد الغرف والحمامات. البيانات تظهر تلقائياً لكل الوحدات التابعة للنموذج (ويمكن تعديل وحدة بعينها من صفحة الوحدات).</div>
+<div class="alert alert-warning hint-box">ارفع صورة المسقط لكل نموذج، وحدد عدد الغرف والحمامات. البيانات تظهر تلقائياً لكل الوحدات التابعة للنموذج (ويمكن تعديل وحدة بعينها من صفحة الوحدات).</div>
 <div class="grid grid-3">
 <% models.forEach(m => { %>
   <form class="card" id="m<%= m.model_no %>" method="post" action="/admin/models/<%= encodeURIComponent(m.model_no) %>" enctype="multipart/form-data" style="margin:0">

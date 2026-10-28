@@ -11,7 +11,7 @@
 <div class="card">
   <h2>حسابات العملاء</h2>
   <div class="table-wrap">
-  <table class="table">
+  <table class="table responsive">
     <thead><tr><th>#</th><th>العميل</th><th>أدمن العميل</th><th>المستخدمون</th><th>الوحدات</th><th>العروض</th><th>العقود</th><th>نشط</th><th>ملاحظات</th><th></th></tr></thead>
     <tbody>
     <% tenants.forEach(t => { const a = admins.filter(x => x.tenant_id === t.id); %>

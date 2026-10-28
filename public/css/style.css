@@ -342,3 +342,182 @@ details.edit summary { cursor: pointer; color: var(--primary); }
 @media print {
   .doc.quote-doc .schedule.cols-4 table.installments th, .doc.quote-doc .schedule.cols-4 table.installments td { font-size: 8.5px; padding: 0 2px; line-height: 1.3; }
 }
+
+/* =====================================================================
+   Phones: tighter spacing, one-line navigation, lists as cards
+   ===================================================================== */
+.nav a { white-space: nowrap; }
+td.ltr, .ltr { white-space: nowrap; }
+
+@media (max-width: 640px) {
+  body { font-size: 14px; line-height: 1.6; }
+  main { padding: 12px 10px 32px; }
+  h1 { font-size: 1.2rem; }
+  h2 { font-size: 1.02rem; margin-bottom: .45em; }
+  h3 { font-size: .95rem; }
+
+  /* Top bar: logo + account on one row, navigation as a single scrollable row */
+  .topbar .inner { padding: 6px 10px 0; gap: 6px 10px; min-height: 0; }
+  .brand img { height: 30px; }
+  .userbox { margin-inline-start: auto; gap: 6px; font-size: .82rem; }
+  .userbox > a { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .userbox button { padding: 2px 10px; }
+  .nav { order: 3; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding: 2px 0 8px; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { padding: 5px 12px; font-size: .88rem; background: rgba(255,255,255,.07); border-radius: 999px; }
+  .tenant-bar { font-size: .8rem; padding: 4px 10px; gap: 8px; }
+  .tenant-bar button { padding: 2px 10px; }
+  .tenant-name { padding: 6px 10px 0; font-size: .8rem; }
+
+  /* Admin tabs: one scrollable row instead of four wrapped rows */
+  .row.no-print:has(> a.btn-sm) { flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin-bottom: 12px !important; padding-bottom: 2px; scrollbar-width: none; }
+  .row.no-print:has(> a.btn-sm)::-webkit-scrollbar { display: none; }
+  .row.no-print > a.btn-sm { flex: 0 0 auto; }
+
+  .page-head { margin-bottom: 10px; gap: 8px; }
+  .card { padding: 12px; margin-bottom: 12px; border-radius: 10px; }
+  .alert { padding: 8px 12px; margin-bottom: 10px; font-size: .86rem; }
+  .flash { margin-bottom: 10px; }
+
+  /* Forms: smaller gaps; 16px inputs so iOS does not zoom in on focus */
+  .grid { gap: 0 10px; }
+  .grid > * { grid-column: auto !important; }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .field { margin-bottom: 10px; }
+  label { font-size: .84rem; margin-bottom: 2px; }
+  .hint { font-size: .74rem; }
+  input[type=text], input[type=password], input[type=number], input[type=email], input[type=tel], input[type=date], select, textarea { padding: 7px 10px; font-size: 16px; border-radius: 7px; }
+  input.code-input { font-size: 1.15rem; }
+  textarea { min-height: 64px; }
+  .btn { padding: 8px 14px; }
+  .btn-lg { padding: 10px 18px; font-size: 1rem; }
+  .row { gap: 8px; }
+
+  /* Dashboard */
+  .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .choice { padding: 12px 10px; border-radius: 12px; }
+  .choice .icon { font-size: 1.6rem; margin-bottom: 4px; }
+  .choice strong { font-size: 1rem; }
+  .choice span { font-size: .76rem; line-height: 1.4; display: block; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .stat { padding: 8px 10px; }
+  .stat b { font-size: 1.2rem; }
+  .stat span { font-size: .74rem; }
+
+  /* Quote form: unit facts and price summary in compact grids */
+  .unit-card { gap: 10px; }
+  .unit-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .fact { padding: 6px 8px; border-radius: 7px; }
+  .fact span { font-size: .72rem; }
+  .fact b { font-size: .92rem; }
+  .unit-image { min-height: 0; }
+  .unit-image.empty { display: none; }
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .summary .fact.total { grid-column: 1 / -1; }
+  .sold-banner { font-size: .95rem; padding: 8px 12px; }
+  table.table { font-size: .8rem; }
+  table.table th, table.table td { padding: 6px 6px; }
+
+  /* Lists as cards */
+  table.responsive, table.responsive tbody { display: block; }
+  table.responsive thead { display: none; }
+  table.responsive tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 10px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+  table.responsive tbody tr:hover { background: #fff; }
+  table.responsive td { display: block; border: none; padding: 2px 0; min-width: 0; text-align: right; }
+  table.responsive td::before { content: attr(data-label); display: block; font-size: .7rem; color: var(--muted); line-height: 1.3; }
+  table.responsive td:first-child { grid-column: 1 / -1; font-size: .95rem; border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 2px; }
+  table.responsive td:first-child::before { display: none; }
+  table.responsive td:last-child:has(button, form, .btn) { grid-column: 1 / -1; }
+  table.responsive td:not([data-label])::before, table.responsive td[data-label=""]::before { display: none; }
+  table.responsive td input:not([type=checkbox]), table.responsive td select { width: 100%; min-width: 0; }
+  table.responsive td[colspan] { grid-column: 1 / -1; }
+  .table-wrap:has(> table.responsive) { overflow: visible; }
+
+  /* Printed documents viewed on a phone */
+  .actions-bar { gap: 6px; margin-bottom: 10px; }
+  .actions-bar .btn { padding: 7px 12px; font-size: .88rem; }
+  .doc { padding: 12px; border-radius: 10px; }
+  .doc-head { gap: 8px; padding-bottom: 8px; margin-bottom: 10px; }
+  .doc-head img { max-height: 44px; }
+  .doc-head .title h1 { font-size: 1.15rem; }
+  .doc h3 { margin: 10px 0 6px; }
+  .doc table.info { margin-bottom: 10px; }
+  .doc table.info tr { display: grid; grid-template-columns: 34% 66%; }
+  .doc table.info td { padding: 5px 8px; font-size: .84rem; border-width: 0 0 1px; width: auto !important; }
+  .doc table.info td:nth-child(odd) { width: auto; }
+  .doc table.info { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: block; }
+  .doc table.info tbody { display: block; }
+  .doc .unit-card { grid-template-columns: 1fr; }
+  .doc .schedule table.installments th, .doc .schedule table.installments td { font-size: 11px; padding: 3px 2px; }
+  .doc table.schedule-total, .doc table.schedule-total tbody, .doc table.schedule-total tr { display: block; }
+  .doc table.schedule-total td { display: inline-block; border: none; padding: 2px 6px; background: none; }
+  .doc table.schedule-total tr { border: 1px solid #cfd5df; border-radius: 8px; background: #f7f9fc; padding: 4px; }
+  .doc-foot { margin-top: 12px; }
+
+  /* Contract pages and signing */
+  .contract-page { padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
+  .contract-page .page-sign { font-size: 9.5px; gap: 6px; }
+  .contract-page .page-sign > div { flex-direction: column; align-items: flex-start; gap: 2px; min-height: 0; }
+  .contract-page .page-sign .sig-slot.signed img { max-height: 28px; }
+  .link-box { flex-wrap: wrap; }
+  .link-box input { flex: 1 1 100%; }
+  .sign-pad-wrap canvas { height: 190px; }
+
+  /* Login */
+  .login-wrap { padding: 14px; }
+  .login-card .brand-big img { width: 200px; }
+}
+@media (max-width: 640px) {
+  #units tbody tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  /* A scrollable flex item must be allowed to shrink below its content width. */
+  .nav { min-width: 0; max-width: 100%; }
+  html, body { overflow-x: clip; }
+}
+@media (max-width: 640px) {
+  /* Card cells wrap instead of spilling into the next cell */
+  table.responsive td { white-space: normal; overflow-wrap: anywhere; }
+  table.responsive td input, table.responsive td select { min-width: 0 !important; }
+  table.responsive td .badge { white-space: nowrap; }
+
+  /* Contract pages: tables shrink to the screen, signatures don't force a minimum width */
+  .sig-slot, .contract-body .sig-slot { min-width: 0; }
+  .sig-slot.empty { padding-top: 12px; }
+  .sig-slot.signed img { max-width: 100%; }
+  .contract-page .page-body table { table-layout: fixed; width: 100%; }
+  .contract-page .page-body td, .contract-page .page-body th { overflow-wrap: anywhere; }
+  .contract-page .page-body table.installments th, .contract-page .page-body table.installments td { font-size: 9.5px; padding: 2px 1px; }
+  .contract-body table.signatures td { padding: 8px 4px; }
+  .contract-body img { max-width: 100%; height: auto; }
+
+  /* Template editor: placeholder list below the editor instead of a fixed side column */
+  .grid[style*="280px"] { grid-template-columns: 1fr !important; }
+  .grid[style*="280px"] > .card { position: static !important; max-height: 260px !important; }
+  .editor { min-height: 320px; padding: 12px; }
+  .editor-toolbar { gap: 4px; }
+}
+@media (max-width: 640px) {
+  .contract-page .page-body p, .contract-page .page-body li { overflow-wrap: anywhere; }
+  .grid[style*="280px"] > * { min-width: 0; }
+  .editor { overflow-wrap: anywhere; overflow-x: auto; }
+  .editor-toolbar { flex-wrap: wrap; }
+  .contract-page .page-body .contract-cover { padding-top: 16px; }
+}
+@media (max-width: 640px) {
+  /* Units on phones: code, floor, area, rooms, price, status and edit only (the rest is in the edit dialog) */
+  #units tbody td:nth-child(2), #units tbody td:nth-child(3), #units tbody td:nth-child(5),
+  #units tbody td:nth-child(7), #units tbody td:nth-child(10) { display: none; }
+  #units tbody tr { position: relative; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 6px 10px; margin-bottom: 6px; font-size: .85rem; }
+  #units tbody td:first-child { padding-left: 150px; }
+  /* status badge and edit button sit in the card's title row */
+  #units tbody td:nth-child(11) { position: absolute; top: 7px; left: 82px; padding: 0; }
+  #units tbody td:nth-child(11)::before { display: none; }
+  #units tbody td:last-child { position: absolute; top: 4px; left: 10px; padding: 0; }
+  #units tbody td:last-child .btn { padding: 3px 12px; min-height: 0; }
+  #unit-dialog { width: 100% !important; max-width: none !important; margin: auto 0 0; max-height: 92vh; }
+  #unit-dialog .card { border-radius: 14px 14px 0 0; }
+  #unit-dialog .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+  #unit-dialog .grid > .field[style*="span 2"] { grid-column: 1 / -1 !important; }
+  #unit-dialog .field label { font-size: .8rem; }
+}
