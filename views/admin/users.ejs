@@ -1,0 +1,51 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>المستخدمون والصلاحيات</h1></div>
+<%- include('../partials/admin-nav') %>
+
+<div class="card">
+  <h2>إضافة مستخدم</h2>
+  <form method="post" action="/admin/users" autocomplete="off">
+    <div class="grid grid-4">
+      <div class="field"><label>الاسم الكامل</label><input type="text" name="full_name" required></div>
+      <div class="field"><label>اسم المستخدم</label><input type="text" name="username" dir="ltr" required></div>
+      <div class="field"><label>كلمة مرور مؤقتة</label><input type="text" name="password" dir="ltr" minlength="8" required></div>
+      <div class="field"><label>الدور</label><select name="role"><option value="user">موظف مبيعات</option><option value="admin">أدمن</option></select></div>
+      <div class="field"><label>أقصى خصم % <span class="hint">(فارغ = العام <%= settings.max_discount_pct %>%)</span></label><input type="number" name="max_discount_pct" step="0.01" min="0" max="100"></div>
+      <div class="field"><label>أقل مقدم % <span class="hint">(فارغ = العام <%= settings.min_down_payment_pct %>%)</span></label><input type="number" name="min_down_payment_pct" step="0.01" min="0" max="100"></div>
+      <div class="field"><label>أقصى مدة بالسنوات <span class="hint">(فارغ = العام <%= settings.max_years %>)</span></label><input type="number" name="max_years" step="0.25" min="0"></div>
+      <div class="field"><label>الصلاحيات</label>
+        <label class="check"><input type="checkbox" name="can_quote" value="1" checked> عروض الأسعار</label>
+        <label class="check"><input type="checkbox" name="can_contract" value="1" checked> العقود</label>
+      </div>
+    </div>
+    <button class="btn" type="submit">إضافة</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>المستخدمون</h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>أقصى خصم</th><th>أقل مقدم</th><th>أقصى مدة</th><th>عروض</th><th>عقود</th><th>نشط</th><th>كلمة مرور جديدة</th><th></th></tr></thead>
+    <tbody>
+    <% users.forEach(u => { %>
+      <tr>
+        <td><input form="u<%= u.id %>" type="text" name="full_name" value="<%= u.full_name %>" style="min-width:140px"></td>
+        <td class="ltr"><%= u.username %></td>
+        <td><select form="u<%= u.id %>" name="role" <%= u.id === user.id ? 'disabled' : '' %>><option value="user" <%= u.role === 'user' ? 'selected' : '' %>>مبيعات</option><option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>أدمن</option></select></td>
+        <td><input form="u<%= u.id %>" type="number" name="max_discount_pct" step="0.01" min="0" max="100" value="<%= u.max_discount_pct ?? '' %>" placeholder="<%= settings.max_discount_pct %>"></td>
+        <td><input form="u<%= u.id %>" type="number" name="min_down_payment_pct" step="0.01" min="0" max="100" value="<%= u.min_down_payment_pct ?? '' %>" placeholder="<%= settings.min_down_payment_pct %>"></td>
+        <td><input form="u<%= u.id %>" type="number" name="max_years" step="0.25" min="0" value="<%= u.max_years ?? '' %>" placeholder="<%= settings.max_years %>"></td>
+        <td><input form="u<%= u.id %>" type="checkbox" name="can_quote" value="1" <%= u.can_quote ? 'checked' : '' %>></td>
+        <td><input form="u<%= u.id %>" type="checkbox" name="can_contract" value="1" <%= u.can_contract ? 'checked' : '' %>></td>
+        <td><input form="u<%= u.id %>" type="checkbox" name="active" value="1" <%= u.active ? 'checked' : '' %> <%= u.id === user.id ? 'disabled' : '' %>></td>
+        <td><input form="u<%= u.id %>" type="text" name="password" dir="ltr" placeholder="بدون تغيير" autocomplete="off"></td>
+        <td><form id="u<%= u.id %>" method="post" action="/admin/users/<%= u.id %>"><button class="btn btn-sm" type="submit">حفظ</button></form></td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted"><small>حدود الخصم والمقدم والمدة لا تنطبق على الأدمن. الحقول الفارغة تأخذ القيم العامة من الإعدادات. إلغاء "نشط" يوقف الحساب فوراً.</small></p>
+</div>
+<%- include('../partials/foot') %>

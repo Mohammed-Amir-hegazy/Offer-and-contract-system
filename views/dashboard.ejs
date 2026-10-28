@@ -1,0 +1,41 @@
+<%- include('partials/head') %>
+<div class="page-head"><h1>أهلاً <%= user.full_name %></h1><span class="muted"><%= settings.project_name %></span></div>
+
+<div class="choices">
+  <% if (user.role === 'admin' || user.can_quote) { %>
+  <a class="choice" href="/quotes/new"><div class="icon">🧾</div><strong>عرض سعر جديد</strong><span>اكتب اسم العميل وكود الوحدة واحسب الأقساط</span></a>
+  <% } %>
+  <% if (user.role === 'admin' || user.can_contract) { %>
+  <a class="choice" href="/contracts/new"><div class="icon">📝</div><strong>عقد جديد</strong><span>صياغة العقد تلقائياً وإرساله للتوقيع الإلكتروني</span></a>
+  <% } %>
+</div>
+
+<div class="stats">
+  <div class="stat"><b class="num" style="color:var(--success)"><%= stats.available %></b><span>وحدة متاحة</span></div>
+  <div class="stat"><b class="num" style="color:var(--warning)"><%= stats.reserved %></b><span>وحدة محجوزة</span></div>
+  <div class="stat"><b class="num" style="color:var(--danger)"><%= stats.sold %></b><span>وحدة مباعة</span></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="row"><h2 style="margin:0">آخر عروض الأسعار</h2><span class="spacer"></span><a href="/quotes">الكل</a></div>
+    <% if (!quotes.length) { %><p class="muted">لا توجد عروض بعد</p><% } else { %>
+    <table class="table"><tbody>
+      <% quotes.forEach(q => { %>
+      <tr><td><a href="/quotes/<%= q.id %>"><%= q.number %></a></td><td><%= q.client_name %></td><td class="ltr"><%= q.unit_code %></td><td class="muted"><%= f.date(q.offer_date) %></td></tr>
+      <% }) %>
+    </tbody></table>
+    <% } %>
+  </div>
+  <div class="card">
+    <div class="row"><h2 style="margin:0">آخر العقود</h2><span class="spacer"></span><a href="/contracts">الكل</a></div>
+    <% if (!contracts.length) { %><p class="muted">لا توجد عقود بعد</p><% } else { %>
+    <table class="table"><tbody>
+      <% contracts.forEach(c => { %>
+      <tr><td><a href="/contracts/<%= c.id %>"><%= c.number %></a></td><td><%= c.client.name %></td><td class="ltr"><%= c.unit_code %></td><td><span class="badge badge-<%= c.status %>"><%= f.CONTRACT_STATUS_LABELS[c.status] %></span></td></tr>
+      <% }) %>
+    </tbody></table>
+    <% } %>
+  </div>
+</div>
+<%- include('partials/foot') %>

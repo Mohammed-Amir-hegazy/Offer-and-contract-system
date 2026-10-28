@@ -1,0 +1,15 @@
+<% const showGarage = plan.garagePrice > 0; %>
+<table class="installments" style="width:100%;border-collapse:collapse">
+  <thead><tr><th>القسط</th><th>تاريخ الاستحقاق</th><th>قيمة الوحدة</th><% if (showGarage) { %><th>الجراج</th><% } %><th>وديعة الصيانة</th><th>الإجمالي</th></tr></thead>
+  <tbody>
+    <tr><td>المقدم</td><td><%= f.date(plan.startDate) %></td><td><%= f.money(plan.downPayment) %></td><% if (showGarage) { %><td>—</td><% } %><td>—</td><td><b><%= f.money(plan.downPayment) %></b></td></tr>
+    <% plan.installments.forEach(i => { %>
+    <tr><td><%= i.no %></td><td><%= f.date(i.date) %></td><td><%= f.money(i.unit) %></td><% if (showGarage) { %><td><%= f.money(i.garage) %></td><% } %><td><%= f.money(i.maintenance) %></td><td><b><%= f.money(i.total) %></b></td></tr>
+    <% }) %>
+  </tbody>
+  <tfoot><tr><td colspan="2">الإجمالي</td>
+    <td><%= f.money(plan.downPayment + plan.remaining) %></td>
+    <% if (showGarage) { %><td><%= f.money(plan.garagePrice) %></td><% } %>
+    <td><%= f.money(plan.maintenanceAmount) %></td>
+    <td><%= f.money(plan.downPayment + plan.installments.reduce((a, i) => a + i.total, 0)) %></td></tr></tfoot>
+</table>

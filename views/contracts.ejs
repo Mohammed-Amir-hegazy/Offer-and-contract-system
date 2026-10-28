@@ -1,0 +1,22 @@
+<%- include('partials/head') %>
+<div class="page-head"><h1>العقود</h1><a class="btn" href="/contracts/new">+ عقد جديد</a></div>
+<div class="card">
+  <div class="field no-print" style="max-width:320px"><input type="text" placeholder="بحث بالاسم أو الكود أو الرقم" oninput="filterRows(this.value)"></div>
+  <div class="table-wrap">
+  <table class="table" id="list">
+    <thead><tr><th>الرقم</th><th>العميل</th><th>الوحدة</th><th>إجمالي العقد</th><th>الحالة</th><th>توقيع العميل</th><th>توقيع الشركة</th><th>التاريخ</th><th>بواسطة</th></tr></thead>
+    <tbody>
+      <% contracts.forEach(c => { %>
+      <tr><td><a href="/contracts/<%= c.id %>"><%= c.number %></a></td><td><%= c.client.name %></td><td class="ltr"><%= c.unit_code %></td>
+        <td class="num"><%= f.money(c.plan.totalContract) %></td>
+        <td><span class="badge badge-<%= c.status %>"><%= f.CONTRACT_STATUS_LABELS[c.status] %></span></td>
+        <td><%= c.client_signed_at ? '✅' : '—' %></td><td><%= c.company_signed_at ? '✅' : '—' %></td>
+        <td><%= f.date(c.created_at) %></td><td><%= c.creator %></td></tr>
+      <% }) %>
+      <% if (!contracts.length) { %><tr><td colspan="9" class="muted">لا توجد عقود بعد</td></tr><% } %>
+    </tbody>
+  </table>
+  </div>
+</div>
+<script src="/static/js/filter.js"></script>
+<%- include('partials/foot') %>

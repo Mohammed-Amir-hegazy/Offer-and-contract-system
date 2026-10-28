@@ -1,0 +1,19 @@
+<%- include('partials/head') %>
+<div class="login-wrap">
+  <div class="card login-card">
+    <div class="brand-big">
+      <% if (settings.company_logo) { %><img src="/uploads/<%= settings.company_logo %>" alt=""><% } %>
+      <h1><%= settings.company_name %></h1>
+      <div class="muted">نظام عروض الأسعار والعقود</div>
+    </div>
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="<%= next %>">
+      <div class="field"><label>اسم المستخدم</label><input type="text" name="username" value="<%= username %>" autocomplete="username" required autofocus></div>
+      <div class="field"><label>كلمة المرور</label><input type="password" name="password" autocomplete="current-password" required></div>
+      <button class="btn btn-lg" style="width:100%;justify-content:center" type="submit">دخول</button>
+    </form>
+    <p class="muted" style="text-align:center;margin-bottom:0"><small>الحسابات يتم إنشاؤها من خلال الأدمن فقط</small></p>
+  </div>
+</div>
+<%- include('partials/foot') %>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>عقد <%= contract.number %> — <%= contract.client.name %></title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body style="background:#fff">
+<div class="actions-bar" style="margin-top:16px"><button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>
+<div class="doc" style="border:none;box-shadow:none">
+  <% if (settings.company_logo) { %><div style="text-align:center;margin-bottom:10px"><img src="/uploads/<%= settings.company_logo %>" alt="" style="max-height:70px"></div><% } %>
+  <div class="contract-body"><%- body %></div>
+  <% if (contract.status === 'signed') { %>
+  <div class="doc-foot">
+    تم توقيع هذا العقد إلكترونياً — العميل: <%= contract.client_signer_name %> (<%= f.datetime(contract.client_signed_at) %>) —
+    الشركة: <%= contract.company_signer_name %> (<%= f.datetime(contract.company_signed_at) %>)
+    <% if (contract.body_hash) { %><br>بصمة العقد: <span class="ltr"><%= contract.body_hash.slice(0, 32) %></span><% } %>
+  </div>
+  <% } %>
+</div>
+</body>
+</html>

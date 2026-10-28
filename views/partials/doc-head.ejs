@@ -1,0 +1,12 @@
+<div class="doc-head">
+  <div>
+    <% if (settings.company_logo) { %><img src="/uploads/<%= settings.company_logo %>" alt="<%= settings.company_name %>"><% } %>
+    <div><strong><%= settings.company_name %></strong></div>
+    <div class="muted"><%= settings.project_name %></div>
+  </div>
+  <div class="title">
+    <h1><%= docTitle %></h1>
+    <div class="ltr"><%= docNumber %></div>
+    <div class="muted"><%= docDate %></div>
+  </div>
+</div>

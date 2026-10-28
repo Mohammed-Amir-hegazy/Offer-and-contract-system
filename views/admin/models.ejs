@@ -1,0 +1,24 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>النماذج وصورها</h1></div>
+<%- include('../partials/admin-nav') %>
+<div class="alert alert-warning">ارفع صورة المسقط لكل نموذج، وحدد عدد الغرف والحمامات. البيانات تظهر تلقائياً لكل الوحدات التابعة للنموذج (ويمكن تعديل وحدة بعينها من صفحة الوحدات).</div>
+<div class="grid grid-3">
+<% models.forEach(m => { %>
+  <form class="card" id="m<%= m.model_no %>" method="post" action="/admin/models/<%= encodeURIComponent(m.model_no) %>" enctype="multipart/form-data" style="margin:0">
+    <div class="row"><h3 style="margin:0">نموذج <%= m.model_no %></h3><span class="spacer"></span><span class="muted"><%= m.units %> وحدة</span></div>
+    <p class="muted" style="margin:4px 0 10px;font-size:.82rem"><span class="ltr"><%= m.codes %></span><br>المساحة: <%= f.area(m.min_area) %><%= m.min_area !== m.max_area ? ' – ' + f.area(m.max_area) : '' %> م²</p>
+    <div class="unit-image" style="min-height:140px;margin-bottom:10px">
+      <% if (m.image) { %><a href="/uploads/<%= m.image %>" target="_blank"><img src="/uploads/<%= m.image %>" alt="" style="max-height:200px"></a><% } else { %><span class="muted">لا توجد صورة</span><% } %>
+    </div>
+    <div class="field"><input type="file" name="image" accept="image/*"></div>
+    <% if (m.image) { %><label class="check" style="margin-bottom:10px"><input type="checkbox" name="remove_image" value="1"> حذف الصورة</label><% } %>
+    <div class="grid grid-2">
+      <div class="field"><label>عدد الغرف</label><input type="number" name="rooms" min="0" value="<%= m.rooms ?? '' %>"></div>
+      <div class="field"><label>الحمامات</label><input type="number" name="bathrooms" min="0" value="<%= m.bathrooms ?? '' %>"></div>
+    </div>
+    <div class="field"><label>وصف</label><input type="text" name="description" value="<%= m.description || '' %>" placeholder="مثال: 3 غرف + ريسبشن"></div>
+    <button class="btn btn-sm" type="submit">حفظ</button>
+  </form>
+<% }) %>
+</div>
+<%- include('../partials/foot') %>

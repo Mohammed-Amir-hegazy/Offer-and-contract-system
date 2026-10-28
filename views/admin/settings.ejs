@@ -1,0 +1,55 @@
+<%- include('../partials/head') %>
+<% const s = settings; %>
+<div class="page-head"><h1>الإعدادات ونظام السداد</h1></div>
+<%- include('../partials/admin-nav') %>
+<form method="post" action="/admin/settings" enctype="multipart/form-data">
+  <div class="card">
+    <h2>بيانات الشركة</h2>
+    <div class="grid grid-3">
+      <div class="field"><label>اسم الشركة</label><input type="text" name="company_name" value="<%= s.company_name %>"></div>
+      <div class="field"><label>اسم المشروع</label><input type="text" name="project_name" value="<%= s.project_name %>"></div>
+      <div class="field"><label>تليفون الشركة</label><input type="text" name="company_phone" value="<%= s.company_phone %>" dir="ltr"></div>
+      <div class="field" style="grid-column: span 2"><label>عنوان الشركة</label><input type="text" name="company_address" value="<%= s.company_address %>"></div>
+      <div class="field"><label>الشعار (اللوجو)</label><input type="file" name="logo" accept="image/*">
+        <% if (s.company_logo) { %><div class="row" style="margin-top:6px"><img src="/uploads/<%= s.company_logo %>" alt="" style="max-height:40px"><label class="check"><input type="checkbox" name="remove_logo" value="1"> حذف</label></div><% } %>
+      </div>
+      <div class="field"><label>اسم صاحب الشركة / الموقّع عن الشركة</label><input type="text" name="owner_name" value="<%= s.owner_name %>"></div>
+      <div class="field"><label>موبايل صاحب الشركة <span class="hint">(لإرسال رابط التوقيع واتساب)</span></label><input type="text" name="owner_phone" value="<%= s.owner_phone %>" dir="ltr" placeholder="01xxxxxxxxx"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>الخصم والمقدم</h2>
+    <div class="grid grid-4">
+      <div class="field"><label>الخصم الافتراضي %</label><input type="number" step="0.01" min="0" max="100" name="default_discount_pct" value="<%= s.default_discount_pct %>"></div>
+      <div class="field"><label>أقصى خصم للموظفين %</label><input type="number" step="0.01" min="0" max="100" name="max_discount_pct" value="<%= s.max_discount_pct %>"></div>
+      <div class="field"><label>المقدم الافتراضي %</label><input type="number" step="0.01" min="0" max="100" name="default_down_payment_pct" value="<%= s.default_down_payment_pct %>"></div>
+      <div class="field"><label>أقل مقدم مسموح %</label><input type="number" step="0.01" min="0" max="100" name="min_down_payment_pct" value="<%= s.min_down_payment_pct %>"></div>
+    </div>
+    <p class="hint" style="margin:0">يمكن تحديد حدود مختلفة لكل موظف من صفحة <a href="/admin/users">المستخدمين</a>.</p>
+  </div>
+
+  <div class="card">
+    <h2>الأقساط ووديعة الصيانة</h2>
+    <div class="grid grid-4">
+      <div class="field"><label>مدة التقسيط الافتراضية (سنوات)</label><input type="number" step="0.25" min="0" name="default_years" value="<%= s.default_years %>"></div>
+      <div class="field"><label>الدورية الافتراضية (كل كم شهر)</label><input type="number" step="1" min="1" name="default_frequency_months" value="<%= s.default_frequency_months %>"></div>
+      <div class="field"><label>أقصى مدة تقسيط (سنوات)</label><input type="number" step="0.25" min="0" name="max_years" value="<%= s.max_years %>"></div>
+      <div class="field"><label>الدوريات المسموحة (بالشهور)</label><input type="text" name="allowed_frequencies" value="<%= s.allowed_frequencies %>" dir="ltr" placeholder="1,3,6,12"></div>
+      <div class="field"><label>نسبة وديعة الصيانة %</label><input type="number" step="0.01" min="0" max="100" name="maintenance_pct" value="<%= s.maintenance_pct %>"></div>
+      <div class="field"><label>أقساط بدون صيانة في البداية</label><input type="number" step="1" min="0" name="maintenance_skip_installments" value="<%= s.maintenance_skip_installments %>"></div>
+      <div class="field"><label>سعر الجراج الافتراضي ج.م</label><input type="number" step="1" min="0" name="default_garage_price" value="<%= s.default_garage_price %>"></div>
+      <div class="field"><label>صلاحية عرض السعر (أيام)</label><input type="number" step="1" min="0" name="quote_validity_days" value="<%= s.quote_validity_days %>"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="garage_included_by_default" value="1" <%= s.garage_included_by_default === '1' ? 'checked' : '' %>> الجراج مشمول افتراضياً في العروض</label>
+    <label class="check"><input type="checkbox" name="auto_status_on_contract" value="1" <%= s.auto_status_on_contract === '1' ? 'checked' : '' %>> تحديث حالة الوحدة تلقائياً (محجوزة عند إنشاء العقد، مباعة عند توقيع الطرفين، متاحة عند الإلغاء)</label>
+    <p class="hint">مثال بالإعدادات الحالية: <%= Math.floor(Number(s.default_years) * 12 / Number(s.default_frequency_months || 3)) %> قسط، الصيانة تبدأ من القسط <%= Number(s.maintenance_skip_installments) + 1 %>. الأقساط تُحسب من تاريخ إصدار العرض. سعر الجراج يُوزع على كل الأقساط.</p>
+  </div>
+
+  <div class="card">
+    <h2>ملاحظات عرض السعر</h2>
+    <textarea name="quote_terms"><%= s.quote_terms %></textarea>
+  </div>
+  <button class="btn btn-lg" type="submit">حفظ الإعدادات</button>
+</form>
+<%- include('../partials/foot') %>

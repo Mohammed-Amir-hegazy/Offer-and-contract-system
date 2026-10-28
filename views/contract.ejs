@@ -1,0 +1,70 @@
+<%- include('partials/head') %>
+<% const c = contract; const wa = (phone, text) => `https://wa.me/${String(phone || '').replace(/\D/g, '').replace(/^0/, '20')}?text=${encodeURIComponent(text)}`; %>
+<div class="page-head">
+  <h1>عقد <span class="ltr"><%= c.number %></span></h1>
+  <span class="badge badge-<%= c.status %>" style="font-size:1rem"><%= f.CONTRACT_STATUS_LABELS[c.status] %></span>
+</div>
+
+<div class="grid grid-2 no-print">
+  <div class="card">
+    <h2>الإجراءات</h2>
+    <div class="row">
+      <a class="btn" href="/contracts/<%= c.id %>/print" target="_blank">🖨️ طباعة العقد</a>
+      <% if (c.status === 'draft') { %>
+      <form method="post" action="/contracts/<%= c.id %>/links"><button class="btn btn-success" type="submit">✍️ إرسال للتوقيع الإلكتروني</button></form>
+      <% } %>
+      <% if (!c.client_signed_at && !c.company_signed_at && c.status !== 'cancelled') { %>
+      <form method="post" action="/contracts/<%= c.id %>/regenerate"><button class="btn btn-light" type="submit" title="يعيد صياغة العقد بآخر نسخة من قالب العقد">إعادة الصياغة من القالب</button></form>
+      <% } %>
+      <% if (c.status !== 'cancelled' && (c.status !== 'signed' || user.role === 'admin')) { %>
+      <form method="post" action="/contracts/<%= c.id %>/cancel" onsubmit="return confirm('هل تريد إلغاء هذا العقد؟ سيتم إبطال روابط التوقيع.')"><button class="btn btn-danger" type="submit">إلغاء العقد</button></form>
+      <% } %>
+    </div>
+    <% if (c.quote_id) { %><p class="muted" style="margin-bottom:0">مبني على <a href="/quotes/<%= c.quote_id %>">عرض السعر</a></p><% } %>
+  </div>
+
+  <div class="card">
+    <h2>التوقيعات</h2>
+    <table class="table">
+      <tr><th>العميل</th><td><%= c.client_signed_at ? `✅ ${c.client_signer_name} — ${f.datetime(c.client_signed_at)}` : '⏳ لم يوقّع بعد' %></td></tr>
+      <tr><th>الشركة</th><td><%= c.company_signed_at ? `✅ ${c.company_signer_name} — ${f.datetime(c.company_signed_at)}` : '⏳ لم يوقّع بعد' %></td></tr>
+    </table>
+    <% if (links && c.status === 'pending') { %>
+    <% if (!c.client_signed_at) { %>
+    <div class="field" style="margin-top:12px">
+      <label>رابط توقيع العميل (<%= c.client.name %>)</label>
+      <div class="link-box">
+        <input type="text" readonly value="<%= links.client %>" onclick="this.select()">
+        <button class="btn btn-sm btn-light" type="button" onclick="copyLink(this)">نسخ</button>
+        <% if (c.client.phone) { %><a class="btn btn-sm btn-light" target="_blank" rel="noopener" href="<%= wa(c.client.phone, `السيد/ ${c.client.name}، برجاء مراجعة وتوقيع عقد الوحدة ${c.unit_snapshot.code} إلكترونياً من خلال الرابط: ${links.client}`) %>">واتساب</a><% } %>
+      </div>
+    </div>
+    <% } %>
+    <% if (!c.company_signed_at) { %>
+    <div class="field">
+      <label>رابط توقيع الشركة (<%= settings.owner_name || 'صاحب الشركة' %>)</label>
+      <div class="link-box">
+        <input type="text" readonly value="<%= links.company %>" onclick="this.select()">
+        <button class="btn btn-sm btn-light" type="button" onclick="copyLink(this)">نسخ</button>
+        <% if (settings.owner_phone) { %><a class="btn btn-sm btn-light" target="_blank" rel="noopener" href="<%= wa(settings.owner_phone, `عقد جديد ${c.number} للعميل ${c.client.name} — الوحدة ${c.unit_snapshot.code} بانتظار توقيعكم: ${links.company}`) %>">واتساب</a><% } %>
+      </div>
+    </div>
+    <% } %>
+    <p class="muted" style="margin:0"><small>كل رابط خاص بطرف واحد ويُستخدم للتوقيع مرة واحدة فقط. يمكن أيضاً فتح الرابط على تابلت أو موبايل والتوقيع حضورياً.</small></p>
+    <% } %>
+  </div>
+</div>
+
+<div class="doc">
+  <div class="contract-body"><%- body %></div>
+</div>
+<script>
+function copyLink(btn) {
+  const input = btn.parentElement.querySelector('input');
+  input.select();
+  (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.reject()).catch(() => document.execCommand('copy'));
+  btn.textContent = 'تم النسخ ✓';
+  setTimeout(() => { btn.textContent = 'نسخ'; }, 1500);
+}
+</script>
+<%- include('partials/foot') %>

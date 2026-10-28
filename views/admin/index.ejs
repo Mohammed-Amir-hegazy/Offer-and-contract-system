@@ -1,0 +1,27 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>لوحة الأدمن</h1></div>
+<%- include('../partials/admin-nav') %>
+<% if (user.must_change_password) { %><div class="alert alert-warning">غيّر كلمة المرور الافتراضية من <a href="/account/password">هنا</a></div><% } %>
+<% if (stats.unpriced) { %><div class="alert alert-warning">يوجد <b><%= stats.unpriced %></b> وحدة بدون سعر — لا يمكن عمل عروض عليها. استخدم <a href="/admin/units#bulk">التسعير الجماعي</a> أو حدد السعر لكل وحدة.</div><% } %>
+<% if (stats.modelsNoImage) { %><div class="alert alert-warning"><b><%= stats.modelsNoImage %></b> نموذج بدون صورة — <a href="/admin/models">ارفع صور النماذج</a>.</div><% } %>
+<div class="stats">
+  <div class="stat"><b><%= stats.units %></b><span>إجمالي الوحدات</span></div>
+  <div class="stat"><b style="color:var(--success)"><%= stats.available %></b><span>متاحة</span></div>
+  <div class="stat"><b style="color:var(--warning)"><%= stats.reserved %></b><span>محجوزة</span></div>
+  <div class="stat"><b style="color:var(--danger)"><%= stats.sold %></b><span>مباعة</span></div>
+  <div class="stat"><b><%= stats.quotes %></b><span>عرض سعر</span></div>
+  <div class="stat"><b><%= stats.contracts %></b><span>عقد (<%= stats.signed %> موقّع)</span></div>
+  <div class="stat"><b><%= stats.users %></b><span>مستخدم</span></div>
+</div>
+<div class="card">
+  <h2>نظام السداد الحالي</h2>
+  <p style="margin:0">
+    خصم افتراضي <b><%= settings.default_discount_pct %>%</b> (حد أقصى <%= settings.max_discount_pct %>%) —
+    مقدم <b><%= settings.default_down_payment_pct %>%</b> (حد أدنى <%= settings.min_down_payment_pct %>%) —
+    <b><%= Math.floor(Number(settings.default_years) * 12 / Number(settings.default_frequency_months)) %></b> قسط <%= f.frequencyLabel(Number(settings.default_frequency_months)) %> —
+    وديعة صيانة <b><%= settings.maintenance_pct %>%</b> تبدأ بعد أول <%= settings.maintenance_skip_installments %> أقساط —
+    جراج <b><%= f.money(settings.default_garage_price) %></b> ج.م.
+    <a href="/admin/settings">تعديل</a>
+  </p>
+</div>
+<%- include('../partials/foot') %>

@@ -1,0 +1,51 @@
+<%- include('partials/head') %>
+<div class="actions-bar">
+  <button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+  <% if (user.role === 'admin' || user.can_contract) { %>
+    <% if (contract) { %>
+      <a class="btn btn-light" href="/contracts/<%= contract.id %>">عرض العقد <%= contract.number %></a>
+    <% } else { %>
+      <a class="btn btn-success" href="/contracts/new?quote=<%= quote.id %>">📝 تحويل إلى عقد</a>
+    <% } %>
+  <% } %>
+  <% if (quote.client_phone) { %>
+  <a class="btn btn-light" target="_blank" rel="noopener" href="https://wa.me/<%= quote.client_phone.replace(/\D/g, '').replace(/^0/, '20') %>?text=<%= encodeURIComponent(`عرض سعر الوحدة ${unit.code} — ${settings.project_name}`) %>">واتساب العميل</a>
+  <% } %>
+  <a class="btn btn-light" href="/quotes/new">عرض جديد</a>
+</div>
+
+<div class="doc">
+  <%- include('partials/doc-head', { docTitle: 'عرض سعر', docNumber: quote.number, docDate: f.date(quote.offer_date) }) %>
+
+  <table class="info">
+    <tr><td>العميل</td><td><%= quote.client_name %></td><td>الموبايل</td><td class="ltr"><%= quote.client_phone || '—' %></td></tr>
+    <tr><td>تاريخ العرض</td><td><%= f.date(quote.offer_date) %></td><td>صالح حتى</td><td><%= quote.valid_until ? f.date(quote.valid_until) : '—' %></td></tr>
+    <tr><td>مسؤول المبيعات</td><td colspan="3"><%= quote.creator %></td></tr>
+  </table>
+
+  <h3>بيانات الوحدة</h3>
+  <div class="unit-card" style="margin-bottom:16px">
+    <table class="info" style="margin:0">
+      <tr><td>كود الوحدة</td><td class="ltr"><b><%= unit.code %></b></td><td>العمارة / المدخل</td><td><%= unit.building %> / <%= unit.entrance %></td></tr>
+      <tr><td>الدور</td><td><%= f.floorLabel(unit.floor) %></td><td>النموذج</td><td><%= unit.model_no || '—' %></td></tr>
+      <tr><td>المساحة</td><td><%= f.area(unit.area) %> م²</td><td>الحديقة</td><td><%= unit.garden_area ? f.area(unit.garden_area) + ' م²' : '—' %></td></tr>
+      <tr><td>عدد الغرف</td><td><%= unit.rooms ?? '—' %></td><td>الحمامات</td><td><%= unit.bathrooms ?? '—' %></td></tr>
+    </table>
+    <div class="unit-image"><% if (unit.image) { %><img src="<%= unit.image %>" alt="مسقط الوحدة"><% } else { %><span class="muted">—</span><% } %></div>
+  </div>
+
+  <h3>السعر</h3>
+  <table class="info">
+    <tr><td>سعر الوحدة</td><td class="num"><%= f.money(plan.unitPrice) %> ج.م</td><td>الخصم (<%= plan.discountPct %>%)</td><td class="num"><%= f.money(plan.discountAmount) %> ج.م</td></tr>
+    <tr><td>السعر بعد الخصم</td><td class="num"><b><%= f.money(plan.netPrice) %> ج.م</b></td><td>المقدم (<%= plan.downPaymentPct %>%)</td><td class="num"><b><%= f.money(plan.downPayment) %> ج.م</b></td></tr>
+    <tr><td>الجراج</td><td class="num"><%= plan.garagePrice ? f.money(plan.garagePrice) + ' ج.م' : 'غير مشمول' %></td><td>وديعة الصيانة (<%= plan.maintenancePct %>%)</td><td class="num"><%= f.money(plan.maintenanceAmount) %> ج.م</td></tr>
+    <tr><td>نظام السداد</td><td><%= plan.count %> قسط — <%= f.frequencyLabel(plan.frequencyMonths) %> — <%= plan.years %> سنوات</td><td>الإجمالي شامل الصيانة</td><td class="num"><b><%= f.money(plan.grandTotal) %> ج.م</b></td></tr>
+  </table>
+
+  <h3>جدول السداد</h3>
+  <%- include('partials/installments', { plan }) %>
+  <% if (plan.count > plan.maintenanceSkip) { %><p class="muted"><small>وديعة الصيانة لا تُحصّل في أول <%= plan.maintenanceSkip %> أقساط، وتُوزع على باقي الأقساط.</small></p><% } %>
+
+  <% if (settings.quote_terms) { %><div class="doc-foot"><%= settings.quote_terms %></div><% } %>
+</div>
+<%- include('partials/foot') %>

@@ -1,0 +1,50 @@
+<%- include('partials/head') %>
+<div class="doc" style="margin-bottom:18px">
+  <div class="row" style="margin-bottom:12px">
+    <% if (settings.company_logo) { %><img src="/uploads/<%= settings.company_logo %>" alt="" style="max-height:50px"><% } %>
+    <div><strong><%= settings.company_name %></strong><br><span class="muted">توقيع إلكتروني على العقد <span class="ltr"><%= contract.number %></span></span></div>
+    <span class="spacer"></span>
+    <span class="badge badge-<%= contract.status %>"><%= f.CONTRACT_STATUS_LABELS[contract.status] %></span>
+  </div>
+  <div class="alert alert-warning no-print" style="margin:0">
+    التوقيع بصفتك: <strong><%= party === 'client' ? `الطرف الثاني (المشتري) — ${contract.client.name}` : `الطرف الأول (البائع) — ${settings.company_name}` %></strong>.
+    برجاء قراءة العقد بالكامل ثم التوقيع في أسفل الصفحة. سيظهر توقيعك تلقائياً في جميع أماكن التوقيع المخصصة لك.
+  </div>
+</div>
+
+<div class="doc"><div class="contract-body"><%- body %></div></div>
+
+<div class="card no-print" style="max-width:900px;margin:18px auto" id="sign">
+  <% if (alreadySigned) { %>
+    <div class="alert alert-success" style="margin:0">
+      ✅ تم تسجيل توقيعك بتاريخ <%= f.datetime(contract[`${party}_signed_at`]) %>. شكراً لك.
+      <% if (contract.status === 'signed') { %><br>تم توقيع العقد من الطرفين.<% } else { %><br>بانتظار توقيع الطرف الآخر.<% } %>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn btn-light" onclick="window.print()">🖨️ طباعة نسخة</button></div>
+  <% } else { %>
+    <h2>التوقيع</h2>
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <form method="post" id="sign-form">
+      <div class="grid grid-2">
+        <div class="field">
+          <label>الاسم بالكامل</label>
+          <input type="text" name="signerName" required value="<%= party === 'client' ? contract.client.name : (settings.owner_name || '') %>">
+        </div>
+        <% if (party === 'client' && contract.client.national_id) { %>
+        <div class="field">
+          <label>الرقم القومي <span class="hint">(للتحقق من الهوية)</span></label>
+          <input type="text" name="nationalId" required dir="ltr" inputmode="numeric" autocomplete="off">
+        </div>
+        <% } %>
+      </div>
+      <label>ارسم توقيعك داخل المربع</label>
+      <div class="sign-pad-wrap"><canvas id="pad"></canvas><div class="placeholder" id="pad-ph">وقّع هنا ✍️</div></div>
+      <div class="row" style="margin:8px 0 14px"><button class="btn btn-sm btn-light" type="button" id="clear">مسح التوقيع</button></div>
+      <input type="hidden" name="signature" id="signature">
+      <label class="check"><input type="checkbox" name="agree" value="1" required> أقر بأنني قرأت العقد بالكامل وأوافق على جميع بنوده، وأن هذا التوقيع الإلكتروني صادر مني.</label>
+      <div class="row" style="margin-top:16px"><button class="btn btn-lg btn-success" type="submit" id="sign-btn">اعتماد التوقيع</button></div>
+    </form>
+    <script src="/static/js/signature-pad.js"></script>
+  <% } %>
+</div>
+<%- include('partials/foot') %>

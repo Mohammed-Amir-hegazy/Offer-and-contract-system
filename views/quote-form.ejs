@@ -1,0 +1,95 @@
+<%- include('partials/head') %>
+<% const v = (k, d = '') => (prefill[k] ?? d); const isContract = mode === 'contract'; %>
+<div class="page-head">
+  <h1><%= isContract ? 'عقد جديد' : 'عرض سعر جديد' %></h1>
+  <% if (isContract && prefill.quoteNumber) { %><span class="badge badge-draft">من عرض السعر <%= prefill.quoteNumber %></span><% } %>
+</div>
+
+<% if (errors.length) { %>
+<div class="alert alert-error"><ul><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul></div>
+<% } %>
+
+<form method="post" action="<%= isContract ? '/contracts' : '/quotes' %>" id="plan-form" autocomplete="off">
+  <% if (prefill.quoteId) { %><input type="hidden" name="quoteId" value="<%= prefill.quoteId %>"><% } %>
+
+  <div class="card">
+    <h2>١. الوحدة والعميل</h2>
+    <div class="grid grid-3">
+      <div class="field">
+        <label for="code">كود الوحدة</label>
+        <input class="code-input" type="text" id="code" name="code" value="<%= v('code') %>" placeholder="C2-E3-03" list="codes" required>
+        <datalist id="codes"></datalist>
+      </div>
+      <div class="field">
+        <label for="clientName">اسم العميل</label>
+        <input type="text" id="clientName" name="clientName" value="<%= v('clientName') %>" required>
+      </div>
+      <div class="field">
+        <label for="clientPhone">رقم الموبايل</label>
+        <input type="tel" id="clientPhone" name="clientPhone" value="<%= v('clientPhone') %>" dir="ltr">
+      </div>
+      <% if (isContract) { %>
+      <div class="field">
+        <label for="clientNationalId">الرقم القومي</label>
+        <input type="text" id="clientNationalId" name="clientNationalId" value="<%= v('clientNationalId') %>" dir="ltr" inputmode="numeric" required>
+      </div>
+      <div class="field">
+        <label for="clientNationality">الجنسية</label>
+        <input type="text" id="clientNationality" name="clientNationality" value="<%= v('clientNationality', 'مصري') %>">
+      </div>
+      <div class="field">
+        <label for="clientEmail">البريد الإلكتروني</label>
+        <input type="email" id="clientEmail" name="clientEmail" value="<%= v('clientEmail') %>" dir="ltr">
+      </div>
+      <div class="field" style="grid-column: 1 / -1">
+        <label for="clientAddress">العنوان</label>
+        <input type="text" id="clientAddress" name="clientAddress" value="<%= v('clientAddress') %>">
+      </div>
+      <% } %>
+    </div>
+    <div id="unit-panel"><p class="muted" style="margin:0">اكتب كود الوحدة لعرض بياناتها</p></div>
+  </div>
+
+  <div class="card">
+    <h2>٢. نظام السداد</h2>
+    <div class="grid grid-4">
+      <div class="field">
+        <label for="discountPct">نسبة الخصم % <span class="hint">(حد أقصى <%= limits.maxDiscountPct %>%)</span></label>
+        <input type="number" id="discountPct" name="discountPct" min="0" max="<%= limits.maxDiscountPct %>" step="0.01" value="<%= v('discountPct', defaults.discountPct) %>">
+      </div>
+      <div class="field">
+        <label for="downPaymentPct">نسبة المقدم % <span class="hint">(حد أدنى <%= limits.minDownPaymentPct %>%)</span></label>
+        <input type="number" id="downPaymentPct" name="downPaymentPct" min="<%= limits.minDownPaymentPct %>" max="100" step="0.01" value="<%= v('downPaymentPct', defaults.downPaymentPct) %>">
+      </div>
+      <div class="field">
+        <label for="years">مدة التقسيط (سنوات) <span class="hint">(حد أقصى <%= limits.maxYears %>)</span></label>
+        <input type="number" id="years" name="years" min="0" max="<%= limits.maxYears %>" step="0.25" value="<%= v('years', defaults.years) %>">
+      </div>
+      <div class="field">
+        <label for="frequencyMonths">السداد كل</label>
+        <select id="frequencyMonths" name="frequencyMonths">
+          <% limits.allowedFrequencies.forEach(m => { %>
+          <option value="<%= m %>" <%= Number(v('frequencyMonths', defaults.frequencyMonths)) === m ? 'selected' : '' %>><%= f.frequencyLabel(m) %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+    <% const garageOn = prefill.includeGarage === undefined ? defaults.includeGarage : [true, 'true', '1', 'on'].includes(prefill.includeGarage); %>
+    <input type="hidden" name="includeGarage" value="0">
+    <label class="check"><input type="checkbox" id="includeGarage" name="includeGarage" value="1" <%= garageOn ? 'checked' : '' %>> تشمل وحدة جراج (تُوزع قيمتها على الأقساط)</label>
+  </div>
+
+  <div class="card">
+    <h2>٣. ملخص السعر والأقساط <small class="muted">— محسوبة من تاريخ اليوم <%= f.date(f.todayIso()) %></small></h2>
+    <div id="plan-errors"></div>
+    <div id="plan-panel"><p class="muted">ستظهر الأقساط هنا بمجرد اختيار الوحدة</p></div>
+  </div>
+
+  <div class="row" style="justify-content:flex-end">
+    <a class="btn btn-light" href="/">إلغاء</a>
+    <button class="btn btn-lg btn-success" type="submit" id="submit-btn" disabled><%= isContract ? 'صياغة العقد' : 'إصدار عرض السعر' %></button>
+  </div>
+</form>
+
+<script src="/static/js/plan-form.js"></script>
+<%- include('partials/foot') %>

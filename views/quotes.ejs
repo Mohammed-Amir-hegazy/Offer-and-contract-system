@@ -1,0 +1,20 @@
+<%- include('partials/head') %>
+<div class="page-head"><h1>عروض الأسعار</h1><a class="btn" href="/quotes/new">+ عرض سعر جديد</a></div>
+<div class="card">
+  <div class="field no-print" style="max-width:320px"><input type="text" placeholder="بحث بالاسم أو الكود أو الرقم" oninput="filterRows(this.value)"></div>
+  <div class="table-wrap">
+  <table class="table" id="list">
+    <thead><tr><th>الرقم</th><th>العميل</th><th>الوحدة</th><th>السعر بعد الخصم</th><th>المقدم</th><th>الأقساط</th><th>التاريخ</th><th>بواسطة</th></tr></thead>
+    <tbody>
+      <% quotes.forEach(q => { %>
+      <tr><td><a href="/quotes/<%= q.id %>"><%= q.number %></a></td><td><%= q.client_name %></td><td class="ltr"><%= q.unit_code %></td>
+        <td class="num"><%= f.money(q.plan.netPrice) %></td><td class="num"><%= f.money(q.plan.downPayment) %></td><td><%= q.plan.count %> × <%= q.plan.frequencyMonths %> شهور</td>
+        <td><%= f.date(q.offer_date) %></td><td><%= q.creator %></td></tr>
+      <% }) %>
+      <% if (!quotes.length) { %><tr><td colspan="8" class="muted">لا توجد عروض بعد</td></tr><% } %>
+    </tbody>
+  </table>
+  </div>
+</div>
+<script src="/static/js/filter.js"></script>
+<%- include('partials/foot') %>
