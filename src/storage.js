@@ -4,17 +4,17 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { DATA_DIR, ConfigError } = require('./db');
+const { DATA_DIR, ConfigError, envBySuffix } = require('./db');
 const { upload } = require('./format');
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(DATA_DIR, 'uploads');
-const useBlob = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+const blobToken = () => envBySuffix(['BLOB_READ_WRITE_TOKEN']);
 
 async function saveUpload(buffer, ext, contentType) {
   const name = `${crypto.randomBytes(12).toString('hex')}${ext}`;
-  if (useBlob()) {
+  if (blobToken()) {
     const { put } = require('@vercel/blob');
-    const blob = await put(`uploads/${name}`, buffer, { access: 'public', contentType, addRandomSuffix: false });
+    const blob = await put(`uploads/${name}`, buffer, { access: 'public', contentType, addRandomSuffix: false, token: blobToken() });
     return blob.url;
   }
   if (process.env.VERCEL) throw new ConfigError('لم يتم ربط مخزن الملفات: أنشئ Vercel Blob للمشروع من تبويب Storage');

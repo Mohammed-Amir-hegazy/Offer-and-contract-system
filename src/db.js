@@ -6,18 +6,32 @@ const { DEFAULT_CONTRACT_TEMPLATE } = require('./default-template');
 // Storage: Turso / libSQL in production (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN),
 // a local SQLite file otherwise. The SQL is the same in both cases.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-const DB_URL = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || null;
+// Vercel's storage integrations may add a custom prefix to variable names (e.g. STORAGE_TURSO_DATABASE_URL),
+// so look the values up by suffix.
+function envBySuffix(suffixes, accept = () => true) {
+  for (const suffix of suffixes) {
+    if (process.env[suffix] && accept(process.env[suffix])) return process.env[suffix];
+    const key = Object.keys(process.env).find((k) => k.endsWith(`_${suffix}`) && process.env[k] && accept(process.env[k]));
+    if (key) return process.env[key];
+  }
+  return null;
+}
+const isLibsqlUrl = (v) => /^(libsql|https?|wss?|file):/.test(v);
+const DB_URL = envBySuffix(['TURSO_DATABASE_URL', 'LIBSQL_URL', 'TURSO_URL', 'DATABASE_URL'], isLibsqlUrl);
+const DB_TOKEN = envBySuffix(['TURSO_AUTH_TOKEN', 'LIBSQL_AUTH_TOKEN', 'TURSO_TOKEN']);
 
 class ConfigError extends Error {}
 
 function createDbClient() {
   if (DB_URL && !DB_URL.startsWith('file:')) {
     const { createClient } = require('@libsql/client/web');
-    return createClient({ url: DB_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+    return createClient({ url: DB_URL, authToken: DB_TOKEN || undefined });
   }
   // Serverless platforms have a read-only, throw-away disk: a local file would lose every write.
   if (process.env.VERCEL && !DB_URL) {
-    throw new ConfigError('لم يتم ربط قاعدة البيانات: أضف TURSO_DATABASE_URL و TURSO_AUTH_TOKEN في إعدادات Vercel');
+    const related = Object.keys(process.env).filter((k) => /TURSO|LIBSQL|DATABASE/i.test(k));
+    throw new ConfigError('لم يتم ربط قاعدة البيانات: اربط قاعدة Turso بالمشروع من تبويب Storage في Vercel ثم اعمل Redeploy'
+      + (related.length ? ` — المتغيرات الموجودة: ${related.join('، ')}` : ' — لا توجد أي متغيرات لقاعدة البيانات في هذا النشر'));
   }
   const url = DB_URL || `file:${path.join(DATA_DIR, 'app.db')}`;
   fs.mkdirSync(path.dirname(url.slice('file:'.length)), { recursive: true });
@@ -440,7 +454,7 @@ async function nextNumber(table, prefix) {
 }
 
 module.exports = {
-  db, DATA_DIR, ConfigError, ready, getSettings, setSetting, unitsFromCsv, importUnits,
+  db, DATA_DIR, ConfigError, envBySuffix, ready, getSettings, setSetting, unitsFromCsv, importUnits,
   getUnitByCode, getUnitById, listUnits, nextNumber,
   COMPANY_FIELDS, listCompanies, getCompany, defaultCompanyId, companySnapshot,
 };
