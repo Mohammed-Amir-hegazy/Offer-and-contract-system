@@ -395,12 +395,21 @@ async function initialize() {
   }
   await db.run('UPDATE units SET company_id = ? WHERE company_id IS NULL', await defaultCompanyId());
 
+  const username = (process.env.ADMIN_USERNAME || 'admin').trim();
+  const password = (process.env.ADMIN_PASSWORD || 'admin123').trim();
   if ((await db.get("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'")).c === 0) {
-    const username = process.env.ADMIN_USERNAME || 'admin';
-    const password = process.env.ADMIN_PASSWORD || 'admin123';
     const r = await db.run(`INSERT OR IGNORE INTO users (username, password_hash, full_name, role, must_change_password)
       VALUES (?, ?, 'مدير النظام', 'admin', 1)`, username, bcrypt.hashSync(password, 10));
     if (r.changes) console.log(`[setup] تم إنشاء حساب الأدمن: ${username} / ${process.env.ADMIN_PASSWORD ? '(من ADMIN_PASSWORD)' : password} — سيُطلب تغيير كلمة المرور عند أول دخول.`);
+  }
+
+  // ADMIN_PASSWORD may be added after the first run created the admin with the default password.
+  // Until that admin picks their own password, keep it in line with ADMIN_PASSWORD.
+  if (process.env.ADMIN_PASSWORD) {
+    const admin = await db.get("SELECT id, password_hash FROM users WHERE username = ? AND role = 'admin' AND must_change_password = 1", username);
+    if (admin && !bcrypt.compareSync(password, admin.password_hash)) {
+      await db.run('UPDATE users SET password_hash = ? WHERE id = ?', bcrypt.hashSync(password, 10), admin.id);
+    }
   }
 }
 
