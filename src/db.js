@@ -403,12 +403,18 @@ async function initialize() {
     if (r.changes) console.log(`[setup] تم إنشاء حساب الأدمن: ${username} / ${process.env.ADMIN_PASSWORD ? '(من ADMIN_PASSWORD)' : password} — سيُطلب تغيير كلمة المرور عند أول دخول.`);
   }
 
-  // ADMIN_PASSWORD may be added after the first run created the admin with the default password.
-  // Until that admin picks their own password, keep it in line with ADMIN_PASSWORD.
-  if (process.env.ADMIN_PASSWORD) {
-    const admin = await db.get("SELECT id, password_hash FROM users WHERE username = ? AND role = 'admin' AND must_change_password = 1", username);
-    if (admin && !bcrypt.compareSync(password, admin.password_hash)) {
-      await db.run('UPDATE users SET password_hash = ? WHERE id = ?', bcrypt.hashSync(password, 10), admin.id);
+  // ADMIN_USERNAME / ADMIN_PASSWORD may be set or changed after the first run created the admin.
+  // Until that first admin picks their own password, keep the account in line with them.
+  if (process.env.ADMIN_USERNAME || process.env.ADMIN_PASSWORD) {
+    const admin = await db.get("SELECT id, username, password_hash, must_change_password FROM users WHERE role = 'admin' ORDER BY id LIMIT 1");
+    if (admin && admin.must_change_password) {
+      if (process.env.ADMIN_USERNAME && admin.username.toLowerCase() !== username.toLowerCase()
+        && !(await db.get('SELECT id FROM users WHERE username = ?', username))) {
+        await db.run('UPDATE users SET username = ? WHERE id = ?', username, admin.id);
+      }
+      if (process.env.ADMIN_PASSWORD && !bcrypt.compareSync(password, admin.password_hash)) {
+        await db.run('UPDATE users SET password_hash = ? WHERE id = ?', bcrypt.hashSync(password, 10), admin.id);
+      }
     }
   }
 }

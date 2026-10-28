@@ -31,7 +31,7 @@
     <% users.forEach(u => { %>
       <tr>
         <td><input form="u<%= u.id %>" type="text" name="full_name" value="<%= u.full_name %>" style="min-width:140px"></td>
-        <td class="ltr"><%= u.username %></td>
+        <td><input form="u<%= u.id %>" type="text" name="username" value="<%= u.username %>" dir="ltr" required style="min-width:110px"></td>
         <td><select form="u<%= u.id %>" name="role" <%= u.id === user.id ? 'disabled' : '' %>><option value="user" <%= u.role === 'user' ? 'selected' : '' %>>مبيعات</option><option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>أدمن</option></select></td>
         <td><input form="u<%= u.id %>" type="number" name="max_discount_pct" step="0.01" min="0" max="100" value="<%= u.max_discount_pct ?? '' %>" placeholder="<%= settings.max_discount_pct %>"></td>
         <td><input form="u<%= u.id %>" type="number" name="min_down_payment_pct" step="0.01" min="0" max="100" value="<%= u.min_down_payment_pct ?? '' %>" placeholder="<%= settings.min_down_payment_pct %>"></td>

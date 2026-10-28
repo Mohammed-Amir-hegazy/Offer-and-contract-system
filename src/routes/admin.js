@@ -109,6 +109,14 @@ router.post('/users/:id', async (req, res) => {
   if (!target) return res.redirect('/admin/users');
   const u = userFields(req.body);
   if (target.id === req.user.id) { u.role = 'admin'; u.active = 1; } // an admin cannot lock themself out
+  const username = String(req.body.username || '').trim();
+  if (username && username.toLowerCase() !== target.username.toLowerCase()) {
+    if (await db.get('SELECT id FROM users WHERE username = ? AND id != ?', username, target.id)) {
+      req.flash('error', `اسم المستخدم "${username}" مستخدم بالفعل`);
+      return res.redirect('/admin/users');
+    }
+    await db.run('UPDATE users SET username = ? WHERE id = ?', username, target.id);
+  }
   await db.run(`UPDATE users SET full_name = ?, role = ?, active = ?, can_quote = ?, can_contract = ?, max_discount_pct = ?, min_down_payment_pct = ?, max_years = ?
     WHERE id = ?`, u.full_name || target.full_name, u.role, u.active, u.can_quote, u.can_contract, u.max_discount_pct, u.min_down_payment_pct, u.max_years, target.id);
   const password = String(req.body.password || '');
