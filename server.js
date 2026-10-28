@@ -89,7 +89,11 @@ app.use('/owner', requireAuth, requireOwner, require('./src/routes/owner'));
 app.use('/admin', requireAuth, requireTenant, requireAdmin, require('./src/routes/admin'));
 app.use(requireAuth, requireTenant, require('./src/routes/app'));
 
-app.use((req, res) => res.status(404).render('error', { title: 'غير موجود', message: 'الصفحة المطلوبة غير موجودة', user: res.locals.user || null }));
+app.use((req, res) => {
+  // Logged so a "page not found" report can be traced in the hosting logs.
+  console.warn(`[404] ${req.method} ${req.originalUrl} user=${req.user ? req.user.id : '-'} tenant=${req.tenantId || '-'}`);
+  res.status(404).render('error', { title: 'غير موجود', message: 'الصفحة المطلوبة غير موجودة', detail: `${req.method} ${req.originalUrl}`, user: res.locals.user || null });
+});
 app.use((err, req, res, next) => {
   console.error(err);
   // Missing database / file storage configuration: say exactly what to set up instead of a bare 500.
