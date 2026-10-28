@@ -10,6 +10,7 @@
     <h2>الإجراءات</h2>
     <div class="row">
       <a class="btn" href="/contracts/<%= c.id %>/print" target="_blank">🖨️ طباعة العقد</a>
+      <a class="btn btn-light" href="/contracts/<%= c.id %>/export.docx">⬇️ Word</a>
       <% if (c.status === 'draft') { %>
       <form method="post" action="/contracts/<%= c.id %>/links"><button class="btn btn-success" type="submit">✍️ إرسال للتوقيع الإلكتروني</button></form>
       <% } %>
@@ -57,7 +58,7 @@
 </div>
 
 <%- include('partials/company-style') %>
-<div class="doc">
+<div class="doc<%= body.includes('contract-page') ? ' paged' : '' %>">
   <%- include('partials/contract-letterhead') %>
   <div class="contract-body"><%- body %></div>
 </div>

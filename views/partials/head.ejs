@@ -17,10 +17,13 @@
       <span class="brand-sub">عروض الأسعار والعقود</span>
     </a>
     <nav class="nav">
+      <% if (typeof isOwner !== 'undefined' && isOwner) { %><a href="/owner" class="<%= path.startsWith('/owner') ? 'active' : '' %>">لوحة المالك</a><% } %>
+      <% if (user.tenant_id != null || (typeof tenant !== 'undefined' && tenant)) { %>
       <a href="/" class="<%= path === '/' ? 'active' : '' %>">الرئيسية</a>
       <% if (user.role === 'admin' || user.can_quote) { %><a href="/quotes" class="<%= path.startsWith('/quotes') ? 'active' : '' %>">عروض الأسعار</a><% } %>
       <% if (user.role === 'admin' || user.can_contract) { %><a href="/contracts" class="<%= path.startsWith('/contracts') ? 'active' : '' %>">العقود</a><% } %>
       <% if (user.role === 'admin') { %><a href="/admin" class="<%= path.startsWith('/admin') ? 'active' : '' %>">لوحة الأدمن</a><% } %>
+      <% } %>
     </nav>
     <div class="userbox">
       <a href="/account/password" style="color:#fff"><%= user.full_name %></a>
@@ -28,6 +31,14 @@
     </div>
   </div>
 </header>
+<% } %>
+<% if (user && typeof isOwner !== 'undefined' && isOwner && typeof tenant !== 'undefined' && tenant) { %>
+<div class="tenant-bar">
+  <span>أنت تدير حساب العميل: <strong><%= tenant.name %></strong></span>
+  <form method="post" action="/owner/exit"><button type="submit">رجوع للوحة المالك</button></form>
+</div>
+<% } else if (user && typeof tenant !== 'undefined' && tenant) { %>
+<div class="tenant-name"><%= tenant.name %></div>
 <% } %>
 <main>
 <% if (flash) { %><div class="alert alert-<%= flash.type %> flash"><%= flash.message %></div><% } %>

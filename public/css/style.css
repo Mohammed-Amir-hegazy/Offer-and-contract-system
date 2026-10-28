@@ -271,3 +271,74 @@ details.edit summary { cursor: pointer; color: var(--primary); }
   .contract-body table.signatures { break-inside: avoid; page-break-inside: avoid; }
   .contract-body table.installments thead { display: table-header-group; }
 }
+
+/* ---------- Owner working inside a client account */
+.tenant-bar { background: var(--accent); color: var(--navy); display: flex; align-items: center; justify-content: center; gap: 14px; padding: 6px 16px; font-size: .92rem; flex-wrap: wrap; }
+.tenant-bar form { margin: 0; }
+.tenant-bar button { background: var(--navy); color: #fff; border: none; border-radius: 6px; padding: 3px 12px; font: inherit; cursor: pointer; }
+.tenant-name { max-width: 1200px; margin: 0 auto; padding: 10px 16px 0; color: var(--muted); font-size: .88rem; }
+@media print { .tenant-bar, .tenant-name { display: none !important; } }
+
+/* ---------- Paginated contracts: one section = one printed A4 page, signatures at the foot of every page */
+.doc.paged { background: none; border: none; box-shadow: none; padding: 0; max-width: 210mm; }
+.contract-page {
+  background: #fff; width: 100%; max-width: 210mm; min-height: 297mm; margin: 0 auto 18px; padding: 12mm 14mm 10mm;
+  box-shadow: 0 1px 6px rgba(16, 24, 40, .14); display: flex; flex-direction: column; font-size: 13px; line-height: 1.75;
+}
+.contract-page .page-top { display: flex; align-items: center; justify-content: space-between; min-height: 30px; margin-bottom: 6px; }
+.contract-page .page-logo { max-height: 34px; max-width: 120px; }
+.contract-page .page-no { color: #555; font-size: 11px; direction: ltr; }
+.contract-page .page-body { flex: 1; }
+.contract-page .page-body p { margin: 0 0 6px; }
+.contract-page .page-body h1 { font-size: 18px; margin: 4px 0 10px; }
+.contract-page .page-body h2.clause { font-size: 15px; margin: 12px 0 0; }
+.contract-page .page-body h3 { font-size: 14px; margin: 6px 0; }
+.contract-page .page-body table.installments th, .contract-page .page-body table.installments td { font-size: 11px; padding: 2px 6px; line-height: 1.4; }
+.contract-page .page-body .contract-cover { min-height: 0; padding-top: 80px; }
+.contract-page .page-body .plan-img { max-height: 210mm; }
+.contract-page .page-sign { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid #c8c8c8; padding-top: 4px; margin-top: 8px; font-size: 10.5px; color: #444; }
+.contract-page .page-sign > div { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.contract-page .page-sign .sig-slot { min-width: 90px; min-height: 0; margin: 0; }
+.contract-page .page-sign .sig-slot.empty { padding-top: 0; }
+.contract-page .page-sign .sig-slot.signed img { max-height: 36px; max-width: 110px; }
+.contract-page .page-sign .sig-slot.signed small { display: none; }
+@media (max-width: 640px) { .contract-page { min-height: 0; padding: 14px; } }
+@media print {
+  .doc.paged { max-width: none; }
+  .contract-page { box-shadow: none; margin: 0; padding: 0; width: auto; max-width: none; height: 262mm; min-height: 0; break-inside: avoid; page-break-inside: avoid; font-size: 12.5px; }
+  .contract-page + .contract-page { break-before: page; page-break-before: always; }
+  .contract-page .page-body .contract-cover { padding-top: 140px; }
+}
+
+/* ---------- Quote payment schedule: columns, everything on one printed page */
+.schedule { display: grid; gap: 8px; align-items: start; }
+.schedule.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.schedule.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .schedule.cols-2, .schedule.cols-3 { grid-template-columns: 1fr; } }
+.schedule table.installments { width: 100%; border-collapse: collapse; }
+.doc .schedule table.installments th, .doc .schedule table.installments td { padding: 3px 4px; font-size: 12px; }
+.doc .schedule tr.down td { background: color-mix(in srgb, var(--brand) 8%, white); font-weight: 700; }
+.doc .schedule tr.with-maint td { background: #fffaf0; }
+.doc table.schedule-total { width: 100%; margin-top: 6px; border-collapse: collapse; }
+.doc table.schedule-total td { border: 1px solid #cfd5df; padding: 4px 8px; font-size: 12px; text-align: center; background: #f7f9fc; }
+@media print {
+  .doc.quote-doc { font-size: 11px; }
+  .doc.quote-doc .doc-head { padding-bottom: 6px; margin-bottom: 8px; }
+  .doc.quote-doc .doc-head img { max-height: 48px; }
+  .doc.quote-doc h3 { margin: 6px 0 4px; font-size: 12.5px; }
+  .doc.quote-doc table.info { margin-bottom: 6px; }
+  .doc.quote-doc table.info td { padding: 2px 6px; font-size: 11px; }
+  .doc.quote-doc .unit-card { gap: 10px; margin-bottom: 6px !important; grid-template-columns: 1fr 48mm; }
+  .doc.quote-doc .unit-image { min-height: 0; max-height: 45mm; }
+  .doc.quote-doc .unit-image img { max-height: 45mm; }
+  .doc.quote-doc .schedule table.installments th, .doc.quote-doc .schedule table.installments td { font-size: 9.5px; padding: 1px 3px; line-height: 1.35; }
+  .doc.quote-doc .schedule.cols-3 table.installments th, .doc.quote-doc .schedule.cols-3 table.installments td { font-size: 8.5px; padding: 1px 2px; }
+  .doc.quote-doc table.schedule-total td { font-size: 10px; padding: 2px 6px; }
+  .doc.quote-doc .doc-foot { margin-top: 8px; padding-top: 4px; font-size: 9.5px; }
+  .doc.quote-doc .schedule, .doc.quote-doc table.schedule-total { break-inside: avoid; }
+}
+.schedule.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 760px) { .schedule.cols-4 { grid-template-columns: 1fr 1fr; } }
+@media print {
+  .doc.quote-doc .schedule.cols-4 table.installments th, .doc.quote-doc .schedule.cols-4 table.installments td { font-size: 8.5px; padding: 0 2px; line-height: 1.3; }
+}

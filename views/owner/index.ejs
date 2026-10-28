@@ -1,0 +1,54 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>لوحة مالك النظام</h1><span class="muted">إدارة حسابات العملاء على منصة ابتكار</span></div>
+
+<div class="stats">
+  <div class="stat"><b><%= tenants.length %></b><span>عميل</span></div>
+  <div class="stat"><b style="color:var(--success)"><%= tenants.filter(t => t.active).length %></b><span>حساب نشط</span></div>
+  <div class="stat"><b><%= tenants.reduce((a, t) => a + t.units, 0) %></b><span>وحدة على المنصة</span></div>
+  <div class="stat"><b><%= tenants.reduce((a, t) => a + t.contracts, 0) %></b><span>عقد</span></div>
+</div>
+
+<div class="card">
+  <h2>حسابات العملاء</h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>#</th><th>العميل</th><th>أدمن العميل</th><th>المستخدمون</th><th>الوحدات</th><th>العروض</th><th>العقود</th><th>نشط</th><th>ملاحظات</th><th></th></tr></thead>
+    <tbody>
+    <% tenants.forEach(t => { const a = admins.filter(x => x.tenant_id === t.id); %>
+      <tr>
+        <td><%= t.id %></td>
+        <td><input form="t<%= t.id %>" type="text" name="name" value="<%= t.name %>" style="min-width:160px"></td>
+        <td class="ltr"><%= a.length ? a.map(x => x.username).join(', ') : '—' %></td>
+        <td><%= t.users %></td><td><%= t.units %></td><td><%= t.quotes %></td><td><%= t.contracts %></td>
+        <td><input form="t<%= t.id %>" type="checkbox" name="active" value="1" <%= t.active ? 'checked' : '' %>></td>
+        <td><input form="t<%= t.id %>" type="text" name="notes" value="<%= t.notes || '' %>" placeholder="—"></td>
+        <td class="row" style="flex-wrap:nowrap">
+          <form id="t<%= t.id %>" method="post" action="/owner/tenants/<%= t.id %>"><button class="btn btn-sm btn-light" type="submit">حفظ</button></form>
+          <form method="post" action="/owner/tenants/<%= t.id %>/manage"><button class="btn btn-sm" type="submit">إدارة الحساب ←</button></form>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (!tenants.length) { %><tr><td colspan="10" class="muted">لا يوجد عملاء بعد</td></tr><% } %>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="margin-bottom:0"><small>"إدارة الحساب" تدخلك على حساب العميل بصلاحيات الأدمن كاملة (الوحدات، الأسعار، الهوية، العقود). إلغاء "نشط" يوقف دخول كل مستخدمي العميل فوراً.</small></p>
+</div>
+
+<div class="card">
+  <h2>إضافة عميل جديد</h2>
+  <form method="post" action="/owner/tenants" autocomplete="off">
+    <div class="grid grid-2">
+      <div class="field"><label>اسم العميل (شركة التطوير)</label><input type="text" name="name" required></div>
+      <div class="field"><label>اسم المشروع <span class="hint">(اختياري)</span></label><input type="text" name="project_name"></div>
+    </div>
+    <h3>حساب أدمن العميل <span class="hint">(اختياري — تقدر تضيفه بعدين من داخل الحساب)</span></h3>
+    <div class="grid grid-3">
+      <div class="field"><label>الاسم الكامل</label><input type="text" name="admin_name"></div>
+      <div class="field"><label>اسم المستخدم</label><input type="text" name="admin_username" dir="ltr"></div>
+      <div class="field"><label>كلمة مرور مؤقتة</label><input type="text" name="admin_password" dir="ltr" minlength="8"></div>
+    </div>
+    <button class="btn" type="submit">إنشاء الحساب</button>
+  </form>
+</div>
+<%- include('../partials/foot') %>

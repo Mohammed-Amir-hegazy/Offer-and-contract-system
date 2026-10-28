@@ -13,7 +13,7 @@
   </div>
 </div>
 
-<div class="doc"><%- include('partials/contract-letterhead') %><div class="contract-body"><%- body %></div></div>
+<div class="doc<%= body.includes('contract-page') ? ' paged' : '' %>"><%- include('partials/contract-letterhead') %><div class="contract-body"><%- body %></div></div>
 
 <div class="card no-print" style="max-width:900px;margin:18px auto" id="sign">
   <% if (alreadySigned) { %>

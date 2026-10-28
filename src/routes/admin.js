@@ -50,25 +50,24 @@ const pct = (v) => {
 
 // ---------- Overview
 router.get('/', async (req, res) => {
-  const s = await db.get(`SELECT
-    (SELECT COUNT(*) FROM users) AS users,
-    (SELECT COUNT(*) FROM units) AS units,
-    (SELECT COUNT(*) FROM units WHERE price IS NULL OR price = 0) AS unpriced,
-    (SELECT COUNT(*) FROM units WHERE status = 'available') AS available,
-    (SELECT COUNT(*) FROM units WHERE status = 'reserved') AS reserved,
-    (SELECT COUNT(*) FROM units WHERE status = 'sold') AS sold,
-    (SELECT COUNT(*) FROM quotes) AS quotes,
-    (SELECT COUNT(*) FROM contracts WHERE status != 'cancelled') AS contracts,
-    (SELECT COUNT(*) FROM contracts WHERE status = 'signed') AS signed,
-    (SELECT COUNT(*) FROM models WHERE image IS NULL) AS modelsNoImage,
-    (SELECT COUNT(*) FROM companies) AS companies`);
-  const stats = s;
+  const stats = await db.get(`SELECT
+    (SELECT COUNT(*) FROM users WHERE tenant_id = :t) AS users,
+    (SELECT COUNT(*) FROM units WHERE tenant_id = :t) AS units,
+    (SELECT COUNT(*) FROM units WHERE tenant_id = :t AND (price IS NULL OR price = 0)) AS unpriced,
+    (SELECT COUNT(*) FROM units WHERE tenant_id = :t AND status = 'available') AS available,
+    (SELECT COUNT(*) FROM units WHERE tenant_id = :t AND status = 'reserved') AS reserved,
+    (SELECT COUNT(*) FROM units WHERE tenant_id = :t AND status = 'sold') AS sold,
+    (SELECT COUNT(*) FROM quotes WHERE tenant_id = :t) AS quotes,
+    (SELECT COUNT(*) FROM contracts WHERE tenant_id = :t AND status != 'cancelled') AS contracts,
+    (SELECT COUNT(*) FROM contracts WHERE tenant_id = :t AND status = 'signed') AS signed,
+    (SELECT COUNT(*) FROM models WHERE tenant_id = :t AND image IS NULL) AS modelsNoImage,
+    (SELECT COUNT(*) FROM companies WHERE tenant_id = :t) AS companies`.replace(/:t/g, '?1'), req.tenantId);
   res.render('admin/index', { title: 'لوحة الأدمن', stats });
 });
 
 // ---------- Users
 router.get('/users', async (req, res) => {
-  const users = await db.all('SELECT * FROM users ORDER BY role, full_name');
+  const users = await db.all('SELECT * FROM users WHERE tenant_id = ? ORDER BY role, full_name', req.tenantId);
   res.render('admin/users', { title: 'المستخدمون', users });
 });
 
@@ -94,8 +93,8 @@ router.post('/users', async (req, res) => {
     return res.redirect('/admin/users');
   }
   try {
-    await db.run(`INSERT INTO users (username, password_hash, full_name, role, can_quote, can_contract, max_discount_pct, min_down_payment_pct, max_years, must_change_password)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, username, bcrypt.hashSync(password, 10), u.full_name, u.role, u.can_quote, u.can_contract,
+    await db.run(`INSERT INTO users (tenant_id, username, password_hash, full_name, role, can_quote, can_contract, max_discount_pct, min_down_payment_pct, max_years, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, req.tenantId, username, bcrypt.hashSync(password, 10), u.full_name, u.role, u.can_quote, u.can_contract,
       u.max_discount_pct, u.min_down_payment_pct, u.max_years);
     req.flash('success', `تم إنشاء حساب ${u.full_name} — سيُطلب منه تغيير كلمة المرور عند أول دخول`);
   } catch (e) {
@@ -105,7 +104,7 @@ router.post('/users', async (req, res) => {
 });
 
 router.post('/users/:id', async (req, res) => {
-  const target = await db.get('SELECT * FROM users WHERE id = ?', req.params.id);
+  const target = await db.get('SELECT * FROM users WHERE id = ? AND tenant_id = ?', req.params.id, req.tenantId);
   if (!target) return res.redirect('/admin/users');
   const u = userFields(req.body);
   if (target.id === req.user.id) { u.role = 'admin'; u.active = 1; } // an admin cannot lock themself out
@@ -130,19 +129,19 @@ router.post('/users/:id', async (req, res) => {
 
 // ---------- Units
 router.get('/units', async (req, res) => {
-  const units = await listUnits();
+  const units = await listUnits(req.tenantId);
   const buildings = [...new Set(units.map((u) => u.building))].sort();
-  res.render('admin/units', { title: 'الوحدات', units, buildings, floors: f.FLOOR_LABELS, companies: await listCompanies() });
+  res.render('admin/units', { title: 'الوحدات', units, buildings, floors: f.FLOOR_LABELS, companies: await listCompanies(req.tenantId) });
 });
 
 router.post('/units/:id(\\d+)', withImage('image'), async (req, res) => {
-  const unit = await db.get('SELECT * FROM units WHERE id = ?', req.params.id);
+  const unit = await db.get('SELECT * FROM units WHERE id = ? AND tenant_id = ?', req.params.id, req.tenantId);
   if (!unit) return res.redirect('/admin/units');
   const status = ['available', 'reserved', 'sold'].includes(req.body.status) ? req.body.status : unit.status;
   let image = unit.image;
   if (req.file) image = await storeFile(req.file);
   if (req.body.remove_image) image = null;
-  const companyId = (await getCompany(req.body.company_id))?.id ?? unit.company_id;
+  const companyId = (await getCompany(req.tenantId, req.body.company_id))?.id ?? unit.company_id;
   await db.run(`UPDATE units SET area = ?, garden_area = ?, rooms = ?, bathrooms = ?, price = ?, garage_price = ?, status = ?, notes = ?, image = ?,
     company_id = ?, updated_at = datetime('now') WHERE id = ?`, numOrNull(req.body.area) ?? unit.area, numOrNull(req.body.garden_area) ?? 0, numOrNull(req.body.rooms), numOrNull(req.body.bathrooms),
     numOrNull(req.body.price), numOrNull(req.body.garage_price), status, String(req.body.notes || '').trim() || null, image, companyId, unit.id);
@@ -157,8 +156,8 @@ router.post('/units/bulk-price', async (req, res) => {
   const fixed = numOrNull(req.body.fixed_amount) || 0;
   const garage = numOrNull(req.body.garage_price);
   const onlyUnpriced = !!req.body.only_unpriced;
-  const where = ['1=1'];
-  const args = [];
+  const where = ['tenant_id = ?'];
+  const args = [req.tenantId];
   if (req.body.company_id) { where.push('company_id = ?'); args.push(Number(req.body.company_id)); }
   if (req.body.building) { where.push('building = ?'); args.push(req.body.building); }
   if (req.body.floor) { where.push('floor = ?'); args.push(req.body.floor); }
@@ -176,10 +175,10 @@ router.post('/units/bulk-price', async (req, res) => {
 
 // Move a group of units (by building / floor / model) to a company.
 router.post('/units/assign-company', async (req, res) => {
-  const company = await getCompany(req.body.target_company_id);
+  const company = await getCompany(req.tenantId, req.body.target_company_id);
   if (!company) { req.flash('error', 'اختر الشركة'); return res.redirect('/admin/units'); }
-  const where = ['1=1'];
-  const args = [];
+  const where = ['tenant_id = ?'];
+  const args = [req.tenantId];
   if (req.body.building) { where.push('building = ?'); args.push(req.body.building); }
   if (req.body.floor) { where.push('floor = ?'); args.push(req.body.floor); }
   if (req.body.model_no) { where.push('model_no = ?'); args.push(String(req.body.model_no).trim()); }
@@ -192,8 +191,8 @@ router.post('/units/import', friendly(memoryUpload.single('csv')), async (req, r
   if (!req.file) { req.flash('error', 'برجاء اختيار ملف CSV'); return res.redirect('/admin/units'); }
   try {
     const units = unitsFromCsv(req.file.buffer.toString('utf8'));
-    const companyId = (await getCompany(req.body.company_id))?.id ?? await defaultCompanyId();
-    const r = await importUnits(units, companyId);
+    const companyId = (await getCompany(req.tenantId, req.body.company_id))?.id ?? await defaultCompanyId(req.tenantId);
+    const r = await importUnits(req.tenantId, units, companyId);
     let msg = `تم الاستيراد: ${r.added} وحدة جديدة، ${r.updated} وحدة محدثة`;
     if (r.skipped.length) msg += ` — تم تخطي ${r.skipped.length} كود مسجل لشركة أخرى: ${r.skipped.slice(0, 10).join('، ')}`;
     req.flash(r.skipped.length ? 'warning' : 'success', msg);
@@ -206,7 +205,7 @@ router.post('/units/import', friendly(memoryUpload.single('csv')), async (req, r
 router.get('/units/export.csv', async (req, res) => {
   const esc = (v) => (v == null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
   const lines = ['MODEL NO.,FLOOR,CODE,AREA,GARDEN AREA,ROOMS,BATHROOMS,PRICE,GARAGE PRICE,STATUS,COMPANY,NOTES'];
-  for (const u of await listUnits()) {
+  for (const u of await listUnits(req.tenantId)) {
     lines.push([u.model_no, `${u.floor} FLOOR`, u.code, u.area, u.garden_area, u.rooms, u.bathrooms, u.price, u.garage_price, u.status, u.company_name, u.notes].map(esc).join(','));
   }
   res.set('Content-Type', 'text/csv; charset=utf-8');
@@ -217,18 +216,18 @@ router.get('/units/export.csv', async (req, res) => {
 // ---------- Models (floor plans)
 router.get('/models', async (req, res) => {
   const models = await db.all(`SELECT m.*, COUNT(u.id) AS units, GROUP_CONCAT(u.code, '، ') AS codes,
-    MIN(u.area) AS min_area, MAX(u.area) AS max_area FROM models m LEFT JOIN units u ON u.model_no = m.model_no
-    GROUP BY m.model_no ORDER BY CAST(m.model_no AS INTEGER)`);
+    MIN(u.area) AS min_area, MAX(u.area) AS max_area FROM models m LEFT JOIN units u ON u.tenant_id = m.tenant_id AND u.model_no = m.model_no
+    WHERE m.tenant_id = ? GROUP BY m.id ORDER BY CAST(m.model_no AS INTEGER)`, req.tenantId);
   res.render('admin/models', { title: 'النماذج وصورها', models });
 });
 
 router.post('/models/:no', withImage('image'), async (req, res) => {
-  const model = await db.get('SELECT * FROM models WHERE model_no = ?', req.params.no);
+  const model = await db.get('SELECT * FROM models WHERE tenant_id = ? AND model_no = ?', req.tenantId, req.params.no);
   if (!model) return res.redirect('/admin/models');
   let image = model.image;
   if (req.file) image = await storeFile(req.file);
   if (req.body.remove_image) image = null;
-  await db.run('UPDATE models SET rooms = ?, bathrooms = ?, description = ?, image = ? WHERE model_no = ?', numOrNull(req.body.rooms), numOrNull(req.body.bathrooms), String(req.body.description || '').trim() || null, image, model.model_no);
+  await db.run('UPDATE models SET rooms = ?, bathrooms = ?, description = ?, image = ? WHERE id = ?', numOrNull(req.body.rooms), numOrNull(req.body.bathrooms), String(req.body.description || '').trim() || null, image, model.id);
   req.flash('success', `تم حفظ النموذج ${model.model_no}`);
   res.redirect(`/admin/models#m${model.model_no}`);
 });
@@ -239,15 +238,15 @@ const SETTING_KEYS = [
   'maintenance_pct', 'maintenance_skip_installments', 'default_years', 'default_frequency_months', 'max_years',
   'allowed_frequencies', 'default_garage_price', 'quote_validity_days', 'quote_terms',
 ];
-const CHECKBOX_KEYS = ['garage_included_by_default', 'auto_status_on_contract'];
+const CHECKBOX_KEYS = ['garage_included_by_default', 'auto_status_on_contract', 'sign_every_page'];
 
 router.get('/settings', async (req, res) => {
   res.render('admin/settings', { title: 'الإعدادات والأسعار' });
 });
 
 router.post('/settings', async (req, res) => {
-  for (const k of SETTING_KEYS) if (k in req.body) await setSetting(k, String(req.body[k]).trim());
-  for (const k of CHECKBOX_KEYS) await setSetting(k, req.body[k] ? '1' : '0');
+  for (const k of SETTING_KEYS) if (k in req.body) await setSetting(req.tenantId, k, String(req.body[k]).trim());
+  for (const k of CHECKBOX_KEYS) await setSetting(req.tenantId, k, req.body[k] ? '1' : '0');
   req.flash('success', 'تم حفظ الإعدادات');
   res.redirect('/admin/settings');
 });
@@ -268,14 +267,14 @@ function companyFields(body) {
 }
 
 router.get('/companies', async (req, res) => {
-  res.render('admin/companies', { title: 'الشركات', companies: await listCompanies() });
+  res.render('admin/companies', { title: 'الشركات', companies: await listCompanies(req.tenantId) });
 });
 
 router.post('/companies', identityUpload, async (req, res) => {
   const c = companyFields(req.body);
   if (!c.name) { req.flash('error', 'اسم الشركة مطلوب'); return res.redirect('/admin/companies'); }
-  await db.run(`INSERT INTO companies (name, project_name, address, phone, owner_name, owner_phone, primary_color, secondary_color, font_family, quote_terms,
-    logo, font_file, stamp, master_plan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, c.name, c.project_name, c.address, c.phone, c.owner_name,
+  await db.run(`INSERT INTO companies (tenant_id, name, project_name, address, phone, owner_name, owner_phone, primary_color, secondary_color, font_family, quote_terms,
+    logo, font_file, stamp, master_plan) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, req.tenantId, c.name, c.project_name, c.address, c.phone, c.owner_name,
     c.owner_phone, c.primary_color, c.secondary_color, c.font_family, c.quote_terms, await uploaded(req, 'logo'), await uploaded(req, 'font'),
     await uploaded(req, 'stamp'), await uploaded(req, 'master_plan'));
   req.flash('success', `تمت إضافة ${c.name} — انقل وحداتها إليها من صفحة الوحدات أو استورد ملف وحداتها`);
@@ -283,7 +282,7 @@ router.post('/companies', identityUpload, async (req, res) => {
 });
 
 router.post('/companies/:id(\\d+)', identityUpload, async (req, res) => {
-  const company = await getCompany(req.params.id);
+  const company = await getCompany(req.tenantId, req.params.id);
   if (!company) return res.redirect('/admin/companies');
   const c = companyFields(req.body);
   const logo = req.body.remove_logo ? null : (await uploaded(req, 'logo')) || company.logo;
@@ -298,7 +297,7 @@ router.post('/companies/:id(\\d+)', identityUpload, async (req, res) => {
 });
 
 router.post('/companies/:id(\\d+)/delete', async (req, res) => {
-  const company = await getCompany(req.params.id);
+  const company = await getCompany(req.tenantId, req.params.id);
   if (!company) return res.redirect('/admin/companies');
   const units = (await db.get('SELECT COUNT(*) AS c FROM units WHERE company_id = ?', company.id)).c;
   if (units) req.flash('error', `لا يمكن حذف الشركة — مرتبط بها ${units} وحدة. انقل الوحدات لشركة أخرى أولاً`);
@@ -312,20 +311,20 @@ router.post('/companies/:id(\\d+)/delete', async (req, res) => {
 // ---------- Contract template
 // The general template is used by every company that has no wording of its own.
 async function templateTarget(req) {
-  const company = req.body?.company_id || req.query.company ? await getCompany(req.body?.company_id || req.query.company) : null;
+  const company = req.body?.company_id || req.query.company ? await getCompany(req.tenantId, req.body?.company_id || req.query.company) : null;
   return { company, back: company ? `/admin/template?company=${company.id}` : '/admin/template' };
 }
 
-async function saveTemplate(company, html) {
+async function saveTemplate(req, company, html) {
   if (company) await db.run('UPDATE companies SET contract_template = ? WHERE id = ?', html, company.id);
-  else await setSetting('contract_template', html ?? DEFAULT_CONTRACT_TEMPLATE);
+  else await setSetting(req.tenantId, 'contract_template', html ?? DEFAULT_CONTRACT_TEMPLATE);
 }
 
 router.get('/template', async (req, res) => {
   const { company } = await templateTarget(req);
-  const settings = await getSettings();
+  const settings = await getSettings(req.tenantId);
   res.render('admin/template', {
-    title: 'صيغة العقد', placeholders: PLACEHOLDERS, companies: await listCompanies(), company,
+    title: 'صيغة العقد', placeholders: PLACEHOLDERS, companies: await listCompanies(req.tenantId), company,
     usesGeneral: company && !company.contract_template,
     template: (company && company.contract_template) || settings.contract_template,
   });
@@ -333,8 +332,8 @@ router.get('/template', async (req, res) => {
 
 router.post('/template', async (req, res) => {
   const { company, back } = await templateTarget(req);
-  if (req.body.reset) await saveTemplate(company, company ? null : DEFAULT_CONTRACT_TEMPLATE);
-  else await saveTemplate(company, sanitizeTemplate(req.body.template));
+  if (req.body.reset) await saveTemplate(req, company, company ? null : DEFAULT_CONTRACT_TEMPLATE);
+  else await saveTemplate(req, company, sanitizeTemplate(req.body.template));
   req.flash('success', req.body.reset && company
     ? `${company.name} ستستخدم الصيغة العامة`
     : 'تم حفظ صيغة العقد — العقود الجديدة ستُصاغ بها');
@@ -349,7 +348,7 @@ router.post('/template/docx', friendly(memoryUpload.single('docx')), async (req,
     const result = await mammoth.convertToHtml({ buffer: req.file.buffer }, {
       styleMap: ["p[style-name='Title'] => h1:fresh", "p[style-name='Heading 1'] => h2:fresh", "p[style-name='Heading 2'] => h3:fresh"],
     });
-    await saveTemplate(company, sanitizeTemplate(result.value));
+    await saveTemplate(req, company, sanitizeTemplate(result.value));
     req.flash('success', 'تم استيراد العقد من ملف Word — راجع الصيغة وأضف أماكن البيانات والتوقيعات');
   } catch (e) {
     req.flash('error', 'تعذر قراءة ملف Word — تأكد أنه بصيغة .docx');

@@ -1,6 +1,7 @@
 <%- include('partials/head') %>
 <div class="actions-bar">
   <button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+  <a class="btn btn-light" href="/quotes/<%= quote.id %>/export.xlsx">⬇️ Excel</a>
   <% if (user.role === 'admin' || user.can_contract) { %>
     <% if (contract) { %>
       <a class="btn btn-light" href="/contracts/<%= contract.id %>">عرض العقد <%= contract.number %></a>
@@ -15,7 +16,7 @@
 </div>
 
 <%- include('partials/company-style') %>
-<div class="doc">
+<div class="doc quote-doc">
   <%- include('partials/doc-head', { docTitle: 'عرض سعر', docNumber: quote.number, docDate: f.date(quote.offer_date) }) %>
 
   <table class="info">
@@ -45,7 +46,7 @@
 
   <h3>جدول السداد</h3>
   <%- include('partials/installments', { plan }) %>
-  <% if (plan.count > plan.maintenanceSkip) { %><p class="muted"><small>وديعة الصيانة لا تُحصّل في أول <%= plan.maintenanceSkip %> أقساط، وتُوزع على باقي الأقساط.</small></p><% } %>
+  <% if (plan.count > plan.maintenanceSkip) { %><p class="muted" style="margin:4px 0 0"><small>وديعة الصيانة لا تُحصّل في أول <%= plan.maintenanceSkip %> أقساط، وتُوزع على باقي الأقساط.</small></p><% } %>
 
   <% const terms = company.quote_terms || settings.quote_terms; %>
   <% if (terms) { %><div class="doc-foot"><%= terms %></div><% } %>

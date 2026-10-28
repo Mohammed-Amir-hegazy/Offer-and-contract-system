@@ -10,11 +10,11 @@
 <body style="background:#fff">
 <div class="actions-bar" style="margin-top:16px"><button class="btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>
 <%- include('partials/company-style') %>
-<div class="doc" style="border:none;box-shadow:none">
+<div class="doc<%= body.includes('contract-page') ? ' paged' : '' %>" style="border:none;box-shadow:none">
   <%- include('partials/contract-letterhead') %>
   <div class="contract-body"><%- body %></div>
   <% if (contract.status === 'signed') { %>
-  <div class="doc-foot">
+  <div class="doc-foot<%= body.includes('contract-page') ? ' no-print' : '' %>">
     تم توقيع هذا العقد إلكترونياً — العميل: <%= contract.client_signer_name %> (<%= f.datetime(contract.client_signed_at) %>) —
     الشركة: <%= contract.company_signer_name %> (<%= f.datetime(contract.company_signed_at) %>)
     <% if (contract.body_hash) { %><br>بصمة العقد: <span class="ltr"><%= contract.body_hash.slice(0, 32) %></span><% } %>

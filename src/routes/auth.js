@@ -1,6 +1,6 @@
 const { asyncRouter } = require('../router');
 const bcrypt = require('bcryptjs');
-const { db } = require('../db');
+const { db, getTenant } = require('../db');
 const { requireAuth } = require('../auth');
 
 const router = asyncRouter();
@@ -26,7 +26,8 @@ function safeNext(next) {
 
 router.get('/login', async (req, res) => {
   if (req.user) return res.redirect('/');
-  res.render('login', { title: 'تسجيل الدخول', error: null, next: safeNext(req.query.next), username: '' });
+  const error = req.query.suspended ? 'حساب الشركة موقوف — تواصل مع إدارة المنصة' : null;
+  res.render('login', { title: 'تسجيل الدخول', error, next: safeNext(req.query.next), username: '' });
 });
 
 router.post('/login', async (req, res) => {
@@ -43,9 +44,12 @@ router.post('/login', async (req, res) => {
     return fail('اسم المستخدم أو كلمة المرور غير صحيحة');
   }
   if (!user.active) return fail('هذا الحساب موقوف — تواصل مع الأدمن');
+  if (user.tenant_id != null && !(await getTenant(user.tenant_id))?.active) return fail('حساب الشركة موقوف — تواصل مع إدارة المنصة');
   attempts.delete(key);
   req.session.userId = user.id;
-  res.redirect(user.must_change_password ? '/account/password' : next);
+  req.session.tenantId = null;
+  const home = user.role === 'admin' && user.tenant_id == null && next === '/' ? '/owner' : next;
+  res.redirect(user.must_change_password ? '/account/password' : home);
 });
 
 router.post('/logout', async (req, res) => {
@@ -66,7 +70,7 @@ router.post('/account/password', requireAuth, async (req, res) => {
   if (password === current) return render('اختر كلمة مرور مختلفة عن الحالية');
   await db.run('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?', bcrypt.hashSync(password, 10), req.user.id);
   req.flash('success', 'تم تغيير كلمة المرور بنجاح');
-  res.redirect('/');
+  res.redirect(req.isOwner ? '/owner' : '/');
 });
 
 module.exports = router;

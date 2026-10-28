@@ -15,12 +15,13 @@ async function findByToken(token) {
   if (!c) return null;
   const party = c.client_token === token ? 'client' : 'company';
   const unit = JSON.parse(c.unit_snapshot);
-  const company = c.company ? JSON.parse(c.company) : companySnapshot(await getCompany(unit.company_id)) || {};
+  const company = c.company ? JSON.parse(c.company) : companySnapshot(await getCompany(c.tenant_id, unit.company_id)) || {};
   return { contract: { ...c, client: JSON.parse(c.client), company }, party };
 }
 
-function render(res, found, extra = {}) {
+async function render(res, found, extra = {}) {
   const { contract, party } = found;
+  res.locals.settings = await getSettings(contract.tenant_id);
   res.render('sign', {
     title: `توقيع العقد ${contract.number}`,
     contract,
@@ -38,7 +39,7 @@ router.get('/:token', async (req, res) => {
   if (!found || found.contract.status === 'cancelled') {
     return res.status(404).render('error', { title: 'رابط غير صالح', message: 'رابط التوقيع غير صالح أو تم إلغاؤه' });
   }
-  render(res, found);
+  await render(res, found);
 });
 
 router.post('/:token', async (req, res) => {
@@ -74,7 +75,7 @@ router.post('/:token', async (req, res) => {
     const updated = await db.get('SELECT * FROM contracts WHERE id = ?', contract.id);
     if (updated.client_signed_at && updated.company_signed_at) {
       await db.run("UPDATE contracts SET status = 'signed' WHERE id = ?", contract.id);
-      if ((await getSettings()).auto_status_on_contract === '1') {
+      if ((await getSettings(contract.tenant_id)).auto_status_on_contract === '1') {
         await db.run("UPDATE units SET status = 'sold', updated_at = datetime('now') WHERE id = ?", contract.unit_id);
       }
     }

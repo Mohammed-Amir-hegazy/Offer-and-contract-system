@@ -29,6 +29,7 @@
       <div class="field"><label>صلاحية عرض السعر (أيام)</label><input type="number" step="1" min="0" name="quote_validity_days" value="<%= s.quote_validity_days %>"></div>
     </div>
     <label class="check"><input type="checkbox" name="garage_included_by_default" value="1" <%= s.garage_included_by_default === '1' ? 'checked' : '' %>> الجراج مشمول افتراضياً في العروض</label>
+    <label class="check"><input type="checkbox" name="sign_every_page" value="1" <%= s.sign_every_page !== '0' ? 'checked' : '' %>> توقيع الطرفين أسفل كل صفحة من صفحات العقد</label>
     <label class="check"><input type="checkbox" name="auto_status_on_contract" value="1" <%= s.auto_status_on_contract === '1' ? 'checked' : '' %>> تحديث حالة الوحدة تلقائياً (محجوزة عند إنشاء العقد، مباعة عند توقيع الطرفين، متاحة عند الإلغاء)</label>
     <p class="hint">مثال بالإعدادات الحالية: <%= Math.floor(Number(s.default_years) * 12 / Number(s.default_frequency_months || 3)) %> قسط، الصيانة تبدأ من القسط <%= Number(s.maintenance_skip_installments) + 1 %>. الأقساط تُحسب من تاريخ إصدار العرض. سعر الجراج يُوزع على كل الأقساط.</p>
   </div>

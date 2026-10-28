@@ -27,6 +27,18 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// The platform owner must pick a client account before using client pages.
+function requireTenant(req, res, next) {
+  if (req.tenantId) return next();
+  if (req.isOwner) return res.redirect('/owner');
+  res.status(403).render('error', { title: 'غير مسموح', message: 'هذا الحساب غير مرتبط بأي شركة' });
+}
+
+function requireOwner(req, res, next) {
+  if (!req.isOwner) return res.status(403).render('error', { title: 'غير مسموح', message: 'هذه الصفحة متاحة لمالك النظام فقط' });
+  next();
+}
+
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') return res.status(403).render('error', { title: 'غير مسموح', message: 'هذه الصفحة متاحة للأدمن فقط' });
   next();
@@ -50,4 +62,4 @@ function sameOrigin(req, res, next) {
   res.status(403).send('Forbidden');
 }
 
-module.exports = { loadUser, requireAuth, requireAdmin, requirePermission, sameOrigin };
+module.exports = { loadUser, requireAuth, requireAdmin, requireOwner, requireTenant, requirePermission, sameOrigin };

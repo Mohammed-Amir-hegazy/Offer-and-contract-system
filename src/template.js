@@ -132,8 +132,23 @@ function contractValues({ company, contract, client, unit, plan, quoteNumber, ex
 
 // Fill a template. Text values are escaped; the installments table and signature slots are HTML.
 // Signature slots are kept as markers so the actual signature images are dropped in at view time.
-function renderTemplate(template, values, plan) {
-  return template.replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (m, key) => {
+// Page breaks in a template (<div class="page-break"></div>) split the contract into pages that print one per sheet.
+// Each page carries the company logo and page number at the top and, optionally, both parties' signatures
+// at the bottom — the signatures are the same {{company_signature}} / {{client_signature}} slots as in the body.
+const PAGE_BREAK = /<div class="page-break">[\s\S]*?<\/div>/g;
+
+function paginate(template, { logo, signEveryPage }) {
+  const pages = template.split(PAGE_BREAK);
+  if (pages.length < 2 && !signEveryPage) return template;
+  const head = (n) => `<div class="page-top">${logo ? `<img class="page-logo" src="${f.escapeHtml(logo)}" alt="">` : '<span></span>'}<span class="page-no">${n} / ${pages.length}</span></div>`;
+  const foot = signEveryPage
+    ? `<footer class="page-sign"><div><span>توقيع الطرف الأول (البائع)</span>{{company_signature}}</div><div><span>توقيع الطرف الثاني (المشتري)</span>{{client_signature}}</div></footer>`
+    : '';
+  return pages.map((body, i) => `<section class="contract-page">${head(i + 1)}<div class="page-body">${body}</div>${foot}</section>`).join('\n');
+}
+
+function renderTemplate(template, values, plan, options = {}) {
+  return paginate(template, options).replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (m, key) => {
     if (key === 'installments_table') return installmentsTable(plan);
     if (key === 'company_signature' || key === 'client_signature') {
       return `<span class="sig-slot" data-sig="${key === 'company_signature' ? 'company' : 'client'}"></span>`;
@@ -185,4 +200,4 @@ function sanitizeTemplate(html) {
     .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1="#"');
 }
 
-module.exports = { PLACEHOLDERS, contractValues, renderTemplate, applySignatures, installmentsTable, hashBody, sanitizeTemplate };
+module.exports = { paginate, PLACEHOLDERS, contractValues, renderTemplate, applySignatures, installmentsTable, hashBody, sanitizeTemplate };

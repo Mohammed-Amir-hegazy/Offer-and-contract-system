@@ -2,10 +2,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const express = require('express');
 const cookieSession = require('cookie-session');
-const { ready, getSettings, db, ConfigError } = require('./src/db');
+const { ready, getSettings, getTenant, db, ConfigError } = require('./src/db');
 const { UPLOAD_DIR } = require('./src/storage');
 const f = require('./src/format');
-const { loadUser, requireAuth, requireAdmin, sameOrigin } = require('./src/auth');
+const { loadUser, requireAuth, requireAdmin, requireOwner, requireTenant, sameOrigin } = require('./src/auth');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -46,27 +46,48 @@ app.use(async (req, res, next) => {
   }
 });
 app.use(sameOrigin);
+app.use((req, res, next) => {
+  res.locals.f = f;
+  res.locals.path = req.path;
+  res.locals.user = null;
+  res.locals.settings = {};
+  res.locals.flash = req.session.flash || null;
+  if (req.session.flash) req.session.flash = null;
+  req.flash = (type, message) => { req.session.flash = { type, message }; };
+  next();
+});
+app.use(loadUser);
+
+// Which client account this request works in: a client's own users always work in their account;
+// the platform owner works in the account they chose to manage (or in the owner panel).
 app.use(async (req, res, next) => {
   try {
-    res.locals.f = f;
-    const { session_secret: _secret, ...settings } = await getSettings();
-    res.locals.settings = settings;
-    res.locals.path = req.path;
-    res.locals.user = null;
-    res.locals.flash = req.session.flash || null;
-    if (req.session.flash) req.session.flash = null;
-    req.flash = (type, message) => { req.session.flash = { type, message }; };
+    const user = req.user;
+    req.isOwner = !!user && user.role === 'admin' && user.tenant_id == null;
+    req.tenantId = user ? (req.isOwner ? req.session.tenantId || null : user.tenant_id) : null;
+    req.tenant = req.tenantId ? await getTenant(req.tenantId) : null;
+    if (user && !req.isOwner && (!req.tenant || !req.tenant.active)) {
+      req.session = null;
+      return res.redirect('/login?suspended=1');
+    }
+    if (req.isOwner && req.tenantId && !req.tenant) {
+      req.session.tenantId = null;
+      req.tenantId = null;
+    }
+    res.locals.isOwner = req.isOwner;
+    res.locals.tenant = req.tenant;
+    res.locals.settings = await getSettings(req.tenantId);
     next();
   } catch (err) {
     next(err);
   }
 });
-app.use(loadUser);
 
 app.use(require('./src/routes/auth'));
 app.use('/sign', require('./src/routes/sign'));
-app.use('/admin', requireAuth, requireAdmin, require('./src/routes/admin'));
-app.use(requireAuth, require('./src/routes/app'));
+app.use('/owner', requireAuth, requireOwner, require('./src/routes/owner'));
+app.use('/admin', requireAuth, requireTenant, requireAdmin, require('./src/routes/admin'));
+app.use(requireAuth, requireTenant, require('./src/routes/app'));
 
 app.use((req, res) => res.status(404).render('error', { title: 'غير موجود', message: 'الصفحة المطلوبة غير موجودة', user: res.locals.user || null }));
 app.use((err, req, res, next) => {
